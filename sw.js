@@ -1,4 +1,4 @@
-const CACHE = 'family-meal-static-v2';
+const CACHE = 'family-meal-static-v3';
 const STATIC = [
   './', './index.html', './manifest.webmanifest', './favicon.ico',
   './favicon-16x16.png', './favicon-32x32.png', './apple-touch-icon.png', './icon-192.png', './icon-512.png',
