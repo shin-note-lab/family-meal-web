@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#154c44">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src https://eaudjbqjdwvwwrarqufa.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'self'">
+<title>わが家のごはん｜家族専用ログイン</title>
+<style>
+:root{font:16px/1.55 system-ui,-apple-system,"Noto Sans JP",sans-serif;color:#263832;background:#f6f8f3;color-scheme:light}
+*{box-sizing:border-box}body{margin:0}header{background:#154c44;color:white;padding:17px 18px}header>div{max-width:950px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:16px}header strong{font-size:20px}.wrap{max-width:980px;padding:24px 16px 64px;margin:auto}.card{background:white;border:1px solid #dce8df;border-radius:16px;padding:22px;margin-bottom:16px;box-shadow:0 3px 14px #203f2810}.auth{max-width:480px;margin:20px auto}.dim{color:#66766e;font-size:14px}h1{font-size:24px;margin:2px 0 7px}h2{font-size:19px;margin:0 0 14px}h3{font-size:17px;margin:6px 0}p{margin:9px 0 17px}.field{margin:16px 0}.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}.field input{width:100%;padding:12px;border-radius:9px;border:1px solid #c5d7cd;font:inherit;background:white}.field input:focus{outline:2px solid #50a390}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}button{font:inherit;cursor:pointer}.btn{border:0;background:#176d5b;color:white;padding:11px 16px;border-radius:10px;font-weight:700}.btn.secondary{background:#e9f2ec;color:#125244}.btn:disabled{opacity:.6;cursor:not-allowed}.notice{border-radius:9px;padding:12px 14px;margin-top:16px;background:#ecf6ee;font-size:14px}.notice.error{background:#fff0f1;color:#ae2a3d}.hidden{display:none!important}.nav{display:flex;gap:7px;flex-wrap:wrap;margin:18px 0}.nav button{border:0;background:#e6eee7;border-radius:28px;padding:10px 15px;color:#255347}.nav button.selected{background:#176d5b;color:white}.pill{display:inline-block;background:#eaf2ec;color:#235447;border-radius:20px;padding:5px 11px;font-weight:700;font-size:12px;margin:5px 5px 0 0}.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}.item{background:#fff;border:1px solid #e0e9e3;border-radius:12px;padding:14px;overflow-wrap:anywhere}.item strong{display:block;margin-bottom:7px}.item p{font-size:13px;color:#5f7469;margin:7px 0}.row{border-bottom:1px solid #e5eee6;padding:13px 0;overflow-wrap:anywhere}.row:last-child{border:0}.flex{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}code{overflow-wrap:anywhere;font-size:13px}.filter{margin:15px 0;padding:11px;border:1px solid #c5d7cd;border-radius:9px;width:100%;font:inherit}a{color:#14675b}small{font-size:13px;color:#657b71}
+</style>
+</head>
+<body>
+<header><div><strong>🍽 わが家のごはん</strong><span id="headstatus">家族ログイン</span></div></header>
+<main class="wrap">
+ <section id="authview" class="card auth">
+  <h1>家族だけの献立アプリ</h1>
+  <p class="dim">料理・好み・給食・献立をひとつに。ログイン情報はSupabaseに安全に送信します。</p>
+  <form id="loginform">
+   <div class="field"><label for="email">メールアドレス</label><input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required></div>
+   <div class="field"><label for="password">パスワード（8文字以上）</label><input id="password" name="password" type="password" minlength="8" autocomplete="current-password" required></div>
+   <div class="actions"><button class="btn" id="loginbutton" type="submit">ログイン</button><button class="btn secondary" id="signupbutton" type="button">初回アカウント登録</button></div>
+  </form>
+  <div id="authmessage" aria-live="polite"></div>
+  <div class="notice">初回は「アカウント登録」→届いたメールで本人確認→ログイン。家族データは管理者がアクセスを承認した後に表示されます。</div>
+ </section>
+ <section id="pendingview" class="card hidden">
+  <h2>🔒 家族への参加承認待ち</h2>
+  <p>ログインに成功しました。ただし、まだ家族データへのアクセスが承認されていません。</p>
+  <p>管理者に次の<strong>ユーザーIDだけ</strong>伝えてください。パスワード・メール確認コードは送らないでください。</p>
+  <div class="notice"><code id="userid"></code></div>
+  <div class="actions"><button class="btn" id="copybutton">ユーザーIDをコピー</button><button class="btn secondary" id="retrybutton">承認状況を確認</button><button class="btn secondary" id="pendinglogout">ログアウト</button></div>
+  <div id="pendingmessage" aria-live="polite"></div>
+ </section>
+ <section id="appview" class="hidden">
+  <div class="card"><div class="flex"><div><h1>今日もおいしく 🌿</h1><div class="dim" id="account"></div></div><button class="btn secondary" id="logoutbutton">ログアウト</button></div><div><span class="pill" id="foodcount"></span><span class="pill" id="schoolcount"></span><span class="pill" id="menucount"></span></div></div>
+  <nav class="nav" aria-label="アプリのメニュー"><button data-view="foods" class="selected">🍽 料理・好み</button><button data-view="menus">📅 献立</button><button data-view="school">🏫 給食</button></nav>
+  <div class="card"><h2 id="listtitle">料理・好み</h2><input id="search" class="filter" type="search" placeholder="料理名で検索（例：焼きそば）"><div id="results"></div></div>
+  <div class="card dim">このオンライン版は<strong>閲覧専用</strong>。好き嫌いの編集・Notionへの自動同期は、専用連携サーバーを安全に接続した後に追加します。</div>
+ </section>
+</main>
+<script>
+(()=>{'use strict';
+const BASE='https://eaudjbqjdwvwwrarqufa.supabase.co';
+// Publishable key. This is a public client identifier, NOT a service_role/secret key.
+const APIKEY='sb_publishable_W_JWOWxdmKRmjxR2aikZQw_RjrveI5J';
+const SLOT='family_meal_auth_session';
+const $=id=>document.getElementById(id);
+let session=null,member=null,store={foods:[],menus:[],school:[]},tab='foods';
+function state(s){for(const [a,id] of [['auth','authview'],['pending','pendingview'],['app','appview']])$(id).classList.toggle('hidden',s!==a);$('headstatus').textContent=s==='app'?'家族専用':'家族ログイン'}
+function message(id,text,error=false){const el=$(id);el.textContent=text;el.className='notice'+(error?' error':'')}
+function persist(s){session=s;try{if(s)sessionStorage.setItem(SLOT,JSON.stringify(s));else sessionStorage.removeItem(SLOT)}catch{}}
+const authHeaders=(token)=>{const h={'apikey':APIKEY,'Content-Type':'application/json'};if(token)h.Authorization='Bearer '+token;return h};
+async function api(path,{method='GET',body,token}={}){
+ const r=await fetch(BASE+path,{method,headers:authHeaders(token),body:body?JSON.stringify(body):undefined,cache:'no-store'});
+ const raw=await r.text();let result;try{result=raw?JSON.parse(raw):null}catch{result={message:'サーバーの応答を確認できませんでした'}}
+ if(!r.ok)throw new Error(result?.msg||result?.message||result?.error_description||result?.error||'HTTP '+r.status);
+ return result;
+}
+async function validSession(){if(!session)return false;if(session.expires_at>Math.floor(Date.now()/1000)+75)return true;
+ try{const token=await api('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});persist(token);return true}catch{persist(null);return false}
+}
+async function dataRequest(path){if(!await validSession())throw new Error('ログイン期限が切れました。再ログインしてください');return api('/rest/v1/'+path,{token:session.access_token})}
+async function bootstrap(){if(!await validSession()){state('auth');return}
+ const user=await api('/auth/v1/user',{token:session.access_token});session.user=user;persist(session);
+ const memberships=await dataRequest('family_members?select=family_id,role&user_id=eq.'+encodeURIComponent(user.id)+'&limit=1');
+ if(!Array.isArray(memberships)||!memberships.length){$('userid').textContent=user.id;state('pending');return}
+ member=memberships[0];const family=encodeURIComponent(member.family_id);
+ const [foods,menus,school]=await Promise.all([
+ dataRequest('foods?select=name,categories,ryo_preference,aoi_preference,ryo_note,aoi_note,recipe_url&family_id=eq.'+family+'&order=name.asc&limit=100'),
+ dataRequest('menus?select=meal_date,meal_type,description,state,notes&family_id=eq.'+family+'&order=meal_date.asc&limit=200'),
+ dataRequest('school_meals?select=meal_date,ryo_menu,aoi_menu,ryo_status,aoi_status&family_id=eq.'+family+'&order=meal_date.asc&limit=150')
+ ]);
+ store={foods,menus,school};$('account').textContent=user.email+' ｜ '+(member.role==='owner'?'管理者':'家族メンバー');
+ $('foodcount').textContent='料理 '+foods.length+'品';$('schoolcount').textContent='給食 '+school.length+'日';$('menucount').textContent='献立 '+menus.length+'件';state('app');render();
+}
+function element(parent,tag,text,cls){const e=document.createElement(tag);if(text!==null)e.textContent=text;if(cls)e.className=cls;parent.appendChild(e);return e}
+function render(){const root=$('results');root.replaceChildren();const titles={foods:'料理・好み',menus:'献立の候補',school:'学校・保育所の給食'};$('listtitle').textContent=titles[tab];$('search').classList.toggle('hidden',tab!=='foods');
+ let list=store[tab];if(tab==='foods'){const q=$('search').value.trim().toLowerCase();list=list.filter(x=>x.name.toLowerCase().includes(q))}
+ if(!list.length){element(root,'p','該当データはありません','dim');return}
+ const wrap=element(root,'div',null,tab==='foods'?'items':'');
+ for(const x of list){const card=element(wrap,'div',null,tab==='foods'?'item':'row');
+  if(tab==='foods'){element(card,'strong',x.name);element(card,'span','👦 りょう：'+x.ryo_preference,'pill');element(card,'span','👧 あおい：'+x.aoi_preference,'pill');if(x.ryo_note&&x.ryo_note!=='なし')element(card,'p','りょう：'+x.ryo_note);if(x.aoi_note&&x.aoi_note!=='なし')element(card,'p','あおい：'+x.aoi_note);if(x.recipe_url&&/^https:\/\//.test(x.recipe_url)){const a=element(card,'a','参考レシピを確認');a.href=x.recipe_url;a.rel='noopener noreferrer';a.target='_blank'}}
+  else if(tab==='menus'){element(card,'strong',x.meal_date+'（'+x.meal_type+'） '+x.state);element(card,'p',x.description);if(x.notes)element(card,'small',x.notes)}
+  else{element(card,'strong',x.meal_date);element(card,'p','👦 りょう（'+x.ryo_status+'）：'+x.ryo_menu);element(card,'p','👧 あおい（'+x.aoi_status+'）：'+x.aoi_menu)}
+ }
+}
+async function login(ev){ev.preventDefault();const email=$('email').value.trim(),password=$('password').value;$('loginbutton').disabled=true;
+ try{const s=await api('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});persist(s);$('password').value='';await bootstrap()}catch(e){message('authmessage','ログインできませんでした：'+e.message,true)}finally{$('loginbutton').disabled=false}
+}
+async function signup(){const email=$('email').value.trim(),password=$('password').value;if(!email||password.length<8){message('authmessage','メールアドレスと8文字以上のパスワードを入力してください',true);return}
+ $('signupbutton').disabled=true;
+ try{const returnTo=location.origin+location.pathname;const s=await api('/auth/v1/signup?redirect_to='+encodeURIComponent(returnTo),{method:'POST',body:{email,password}});$('password').value='';if(s.access_token){persist(s);await bootstrap()}else message('authmessage','仮登録が完了しました。確認メールのリンクを開き、本人確認を済ませてからログインしてください。')}
+ catch(e){message('authmessage','登録できませんでした：'+e.message,true)}finally{$('signupbutton').disabled=false}
+}
+async function logout(){try{if(session?.access_token)await api('/auth/v1/logout',{method:'POST',token:session.access_token})}catch{}persist(null);member=null;store={foods:[],menus:[],school:[]};$('password').value='';state('auth')}
+$('loginform').addEventListener('submit',login);$('signupbutton').addEventListener('click',signup);$('logoutbutton').addEventListener('click',logout);$('pendinglogout').addEventListener('click',logout);
+$('retrybutton').addEventListener('click',()=>bootstrap().catch(e=>message('pendingmessage','確認に失敗しました：'+e.message,true)));
+$('copybutton').addEventListener('click',()=>navigator.clipboard.writeText($('userid').textContent).then(()=>message('pendingmessage','ユーザーIDをコピーしました')).catch(()=>message('pendingmessage','コピーできませんでした。IDを選択してコピーしてください。',true)));
+$('search').addEventListener('input',render);
+document.querySelectorAll('[data-view]').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('selected',b===btn));tab=btn.dataset.view;render()}));
+try{const query=new URLSearchParams(location.hash.slice(1));if(query.has('access_token')&&query.has('refresh_token')){persist({access_token:query.get('access_token'),refresh_token:query.get('refresh_token'),expires_at:Math.floor(Date.now()/1000)+Number(query.get('expires_in')||3600)});history.replaceState(null,'',location.pathname)}}catch{}
+try{if(!session)session=JSON.parse(sessionStorage.getItem(SLOT)||'null')}catch{}
+if(session){bootstrap().catch(e=>{persist(null);state('auth');message('authmessage','ログイン状態を読み込めませんでした：'+e.message,true)})}else state('auth');
+})();
+</script>
+</body></html>
