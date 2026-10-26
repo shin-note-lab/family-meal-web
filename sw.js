@@ -1,9 +1,9 @@
-const CACHE = 'family-meal-static-v1';
+const CACHE = 'family-meal-static-v2';
 const STATIC = [
   './', './index.html', './manifest.webmanifest', './favicon.ico',
-  './favicon-32x32.png', './icons/icon-192.png', './icons/icon-512.png',
-  './icons/icon-maskable-192.png', './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png'
+  './favicon-16x16.png', './favicon-32x32.png', './apple-touch-icon.png', './icon-192.png', './icon-512.png',
+  './icon-maskable-192.png', './icon-maskable-512.png',
+  './apple-touch-icon.png'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(STATIC)).then(() => self.skipWaiting()));
