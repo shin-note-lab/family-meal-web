@@ -69,7 +69,7 @@
 </main>
 <section class="detail-page" id="detailDialog" hidden><div class="detail-page-header"><button type="button" class="btn outline" data-backdetail>← 戻る</button><h2 id="detailLabel">献立メニュー</h2></div><div class="sheet-inner" id="detailBody"></div></section>
 <dialog class="sheet dish-sheet" id="dishDialog" aria-label="料理のレシピ詳細"><div class="sheet-header"><h2 id="dishLabel">料理のレシピ</h2><button class="close" data-close="dishDialog" aria-label="閉じる">×</button></div><div class="sheet-inner" id="dishBody"></div></dialog>
-<dialog class="sheet" id="setRegisterDialog" aria-label="献立セットの登録"><div class="sheet-header"><h2>🍽 献立を登録</h2><button type="button" class="close" data-close="setRegisterDialog" aria-label="閉じる">×</button></div><div class="sheet-inner"><form id="setRegisterForm"><div class="card" style="background:#f3f9f5;padding:13px;margin-bottom:16px"><div class="small">選んだ料理</div><strong id="setRegisterSummary"></strong></div><div class="field"><label for="editMenuSearch">料理を追加・変更（好みから選択）</label><input type="search" id="editMenuSearch" placeholder="料理名を検索"></div><div id="editMenuChoices" class="filterchips" style="max-height:210px;overflow:auto;margin:9px 0 16px"></div><div class="pair"><div class="field"><label for="setRegisterDate">日付</label><input type="date" id="setRegisterDate" required></div><div class="field"><label for="setRegisterType">食事</label><select id="setRegisterType" required><option value="朝">🌞 朝食</option><option value="おやつ（午前）">🍪 おやつ（午前）</option><option value="昼">🍚 昼食</option><option value="おやつ（午後）">🍰 おやつ（午後）</option><option value="夕">🌙 夕食</option></select></div></div><p class="small">ここでの登録は献立の予定です。実際に食べた記録は別に保存できます。</p><div class="lastrow"><button type="button" class="btn ghost" data-close="setRegisterDialog">キャンセル</button><button type="submit" class="btn">この献立を登録</button></div></form></div></dialog>
+<dialog class="sheet" id="setRegisterDialog" aria-label="献立セットの登録"><div class="sheet-header"><h2>🍽 献立を記録・編集</h2><button type="button" class="close" data-close="setRegisterDialog" aria-label="閉じる">×</button></div><div class="sheet-inner"><form id="setRegisterForm"><div class="card" style="background:#f3f9f5;padding:13px;margin-bottom:16px"><div class="small">選んだ料理</div><strong id="setRegisterSummary"></strong></div><div class="field"><label for="editMenuSearch">料理を追加・変更（好みから選択）</label><input type="search" id="editMenuSearch" placeholder="料理名を検索"></div><div id="editMenuChoices" class="filterchips" style="max-height:210px;overflow:auto;margin:9px 0 16px"></div><div class="pair"><div class="field"><label for="setRegisterDate">日付</label><input type="date" id="setRegisterDate" required></div><div class="field"><label for="setRegisterType">食事</label><select id="setRegisterType" required><option value="朝">🌞 朝食</option><option value="おやつ（午前）">🍪 おやつ（午前）</option><option value="昼">🍚 昼食</option><option value="おやつ（午後）">🍰 おやつ（午後）</option><option value="夕">🌙 夕食</option></select></div></div><p class="small">ここでの登録は献立の予定です。実際に食べた記録は別に保存できます。</p><div class="lastrow"><button type="button" class="btn ghost" data-close="setRegisterDialog">キャンセル</button><button type="submit" class="btn">この献立を登録</button></div></form></div></dialog>
 <dialog class="sheet" id="recordDialog"><div class="sheet-header"><h2 id="recordLabel">食べたものを記録</h2><button class="close" data-close="recordDialog" aria-label="閉じる">×</button></div><div class="sheet-inner"><form id="recordForm" novalidate>
 <div class="pair"><div class="field"><label for="recDate">日付</label><input type="date" id="recDate" required></div><div class="field"><label for="recType">食事</label><select id="recType"><option>朝</option><option>おやつ（午前）</option><option>昼</option><option>おやつ（午後）</option><option>夕</option><option>弁当</option></select></div></div>
 <div class="field"><label for="recFoodSearch">💚 好みに登録済みの料理から選ぶ</label>
@@ -151,13 +151,34 @@ async function remoteReload(){
  data.schools=schools.map(x=>({id:x.id,date:x.meal_date,ryo:x.ryo_menu,aoi:x.aoi_menu,ryoStatus:x.ryo_status,aoiStatus:x.aoi_status}));
  data.updates=foods.flatMap(x=>[{foodId:x.id,child:'りょう',date:x.updated_at},{foodId:x.id,child:'あおい',date:x.updated_at}]);
 }
+// Notion is refreshed when the app is active, at most once every ten minutes.
+// A newly opened app always loads the latest data through remoteBootstrap().
+const NOTION_REFRESH_MS=10*60*1000;
+let notionLastRefresh=0,notionRefreshRunning=false;
+function notionEditorOpen(){return !!document.querySelector('dialog[open]')}
+async function refreshNotionIfDue(force=false){
+ if(document.hidden||!remoteMember||!remoteSession||notionRefreshRunning||notionEditorOpen())return;
+ if(!force&&Date.now()-notionLastRefresh<NOTION_REFRESH_MS)return;
+ notionRefreshRunning=true;
+ try{
+  await remoteReload();
+  notionLastRefresh=Date.now();
+  if(!notionEditorOpen())render();
+ }catch(err){
+  // Keep the previous data visible. Retry on the next interval or foreground event.
+  console.warn('Notionの自動更新に失敗しました。次回再試行します。',err);
+ }finally{notionRefreshRunning=false}
+}
+setInterval(()=>{void refreshNotionIfDue()},NOTION_REFRESH_MS);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshNotionIfDue()});
+window.addEventListener('focus',()=>{void refreshNotionIfDue()});
 async function remoteBootstrap(){const msg=document.getElementById('remoteStatus');try{
  if(!await remoteValid()){msg.textContent='メールアドレスとパスワードを入力してください。';return}
  msg.textContent='家族のデータを読み込んでいます…';
  remoteUser=await remoteApi('/auth/v1/user',{token:remoteSession.access_token});
  const rows=await remoteRequest('family_members?select=family_id,role&user_id=eq.'+encodeURIComponent(remoteUser.id)+'&limit=1');
  if(!rows?.length)throw Error('このアカウントはまだ家族に登録されていません');
- remoteMember=rows[0];await remoteReload();document.getElementById('remoteAuth').style.display='none';render();
+ remoteMember=rows[0];await remoteReload();notionLastRefresh=Date.now();document.getElementById('remoteAuth').style.display='none';render();
  }catch(err){msg.textContent='読み込みエラー：'+err.message}}
 async function remoteLogout(){try{if(remoteSession?.access_token)await remoteApi('/auth/v1/logout',{method:'POST',token:remoteSession.access_token})}catch{}remotePersist(null);location.reload()}
 document.getElementById('remoteLoginForm').addEventListener('submit',async e=>{e.preventDefault();const msg=document.getElementById('remoteStatus');msg.textContent='ログインしています…';try{const session=await remoteApi('/auth/v1/token?grant_type=password',{method:'POST',body:{email:document.getElementById('remoteEmail').value.trim(),password:document.getElementById('remotePassword').value}});remotePersist(session);document.getElementById('remotePassword').value='';await remoteBootstrap()}catch(err){msg.textContent='ログインできません：'+err.message}});
@@ -274,11 +295,11 @@ function setCards(){
  <div class="group"><button class="btn outline" style="padding:6px 11px;font-size:12px;min-height:30px" data-chooseset="${attr(String(x.id))}">セット登録</button></div></div>`).join('')}</div>`;
 }
 let pendingSetItems=[];let pendingEditMenuId=null;
-function registerSelected(items,defaultType='夕',existing=null){
- if(!items.length){toast('料理を1品以上選んでください');return}
+function registerSelected(items,defaultType='夕',existing=null,requestedDate=null){
+ items=items||[];
  pendingSetItems=[...items];pendingEditMenuId=existing?.id||null;
  $('setRegisterSummary').textContent=items.join('・');
- $('setRegisterDate').value=existing?.date||today();
+ $('setRegisterDate').value=existing?.date||requestedDate||today();
  $('setRegisterType').value=['朝','昼','夕','おやつ（午前）','おやつ（午後）'].includes(defaultType)?defaultType:'夕';
  $('editMenuSearch').value='';renderEditMenuChoices();
  $('setRegisterDialog').showModal();
@@ -294,13 +315,13 @@ function chooseSet(id){const x=allMealSets().find(a=>String(a.id)===String(id));
 $('setRegisterForm').addEventListener('submit',async e=>{
  e.preventDefault();const d=$('setRegisterDate').value,type=$('setRegisterType').value;
  if(!d||!['朝','昼','夕','おやつ（午前）','おやつ（午後）'].includes(type)||!pendingSetItems.length){alert('料理を1品以上選んでください');return;}
- const old=data.menus.find(m=>m.date===d&&m.type===type&&m.id!==pendingEditMenuId);
+ const old=data.menus.find(m=>m.date===d&&m.type===type&&m.id!==pendingEditMenuId)||data.records.find(m=>m.date===d&&m.type===type&&m.id!==pendingEditMenuId);
  if(old&&!confirm('この日の登録済み献立を変更しますか？'))return;
  const knownNames=new Set(data.foods.map(f=>f.name));const missingFoods=[...new Set(pendingSetItems.filter(n=>!knownNames.has(n)))];
  const btn=e.submitter;if(btn)btn.disabled=true;
- try{for(const name of missingFoods){await remoteInsert('foods',{name,categories:['主食・メイン'],ryo_preference:'未確認',aoi_preference:'未確認',ryo_note:'',aoi_note:''})}const payload={meal_date:d,meal_type:type,description:pendingSetItems.join('、'),state:pendingEditMenuId?(data.menus.find(m=>m.id===pendingEditMenuId)?.status||'候補'):'候補',notes:''};
+ try{for(const name of missingFoods){await remoteInsert('foods',{name,categories:['主食・メイン'],ryo_preference:'未確認',aoi_preference:'未確認',ryo_note:'',aoi_note:''})}const payload={meal_date:d,meal_type:type,description:pendingSetItems.join('、'),state:pendingEditMenuId?(data.menus.find(m=>m.id===pendingEditMenuId)?.status||'採用'):'採用',notes:''};
  if(pendingEditMenuId)await remoteUpdate('menus',pendingEditMenuId,payload);else if(old)await remoteUpdate('menus',old.id,payload);else await remoteInsert('menus',payload);
- await remoteReload();$('setRegisterDialog').close();pendingEditMenuId=null;setPicked=[];tab='menu';render();window.scrollTo(0,0);toast('献立を家族共有に登録しました ✓')
+ await remoteReload();$('setRegisterDialog').close();pendingEditMenuId=null;setPicked=[];tab='menu';render();window.scrollTo(0,0);toast('献立をNotionに保存しました ✓')
  }catch(err){alert('献立を登録できませんでした。\n'+err.message)}finally{if(btn)btn.disabled=false}
 });
 function nextSuggest(){const recent=recentMeals().slice(0,12).flatMap(r=>r.menu.split(/[、，,\/]/).map(x=>x.trim()));const seen=new Set(recent);
@@ -361,8 +382,8 @@ function menuCards(mode="current",selectedMonth=null){
   const hits=meals.filter(m=>m.type===type);
   const icon={朝:'🌞',昼:'🍚',夕:'🌙',弁当:'🍱','おやつ（午前）':'🍪','おやつ（午後）':'🍰'}[type]||'🍴';
   const slotLabel=type.startsWith('おやつ')?type:(type==='弁当'?'お弁当の日':type+'ごはん');
-  if(!hits.length)return `<div class="time-slot empty-meal"><div class="slot-title">${icon} ${slotLabel} <span class="small">未登録</span></div><p class="sub">${type.startsWith('おやつ')?'食べたおやつを記録できます。':'まだ献立を登録していません。「献立を選ぶ」から登録できます。'}</p><button class="btn outline" data-addrecord="${type}">＋ 食べたものを記録</button></div>`;
-  return `<div class="time-slot"><div class="slot-title">${icon} ${slotLabel} <span class="tag">家庭の献立・${escapeHtml(hits[0].status)}</span></div>${hits.map(m=>`<button class="mealrow" data-detail="${attr(m.id)}">${coverFor(mainOf(m))}<span><strong>${escapeHtml(orderedMealItems(m.items).join('・'))}</strong><span class="small">料理を選んで写真・レシピを確認</span></span><span class="arrow">›</span></button><button class="btn outline" style="margin:7px 0 0" data-editmenu="${attr(m.id)}">✏️ 献立を編集</button>`).join('')}</div>`;
+  if(!hits.length)return `<div class="time-slot empty-meal"><div class="slot-title">${icon} ${slotLabel} <span class="small">未登録</span></div><p class="sub">${'まだ献立を登録していません。食べた内容もここから記録できます。'}</p><button class="btn outline" data-addrecord="${type}">＋ 献立を記録・編集</button></div>`;
+  return `<div class="time-slot"><div class="slot-title">${icon} ${slotLabel} <span class="tag">家庭の献立・${escapeHtml(hits[0].status)}</span></div>${hits.map(m=>`<button class="mealrow" data-detail="${attr(m.id)}">${coverFor(mainOf(m))}<span><strong>${escapeHtml(orderedMealItems(m.items).join('・'))}</strong><span class="small">料理を選んで写真・レシピを確認</span></span><span class="arrow">›</span></button><button class="btn outline" style="margin:7px 0 0" data-editmenu="${attr(m.id)}">✏️ 献立を記録・編集</button>`).join('')}</div>`;
  }
  function schoolTag(status){const label=status==='給食あり'?'給食':status;return `<span class="school-status-tag${label==='給食'?'':' off'}">${escapeHtml(label)}</span>`;}
  function schoolSlot(s){
@@ -372,7 +393,7 @@ function menuCards(mode="current",selectedMonth=null){
      <div class="school-lunch"><div class="school-label">👧 あおい ${schoolTag(s.aoiStatus)}</div><div class="school-text">${escapeHtml(s.aoi)}</div></div></div>
      <div class="small" style="margin-top:8px">※給食の献立表に基づく予定。変更・欠席・実食は未確認</div></div>`;
  }
- function actualBlock(records){return records.length?`<div class="time-slot actual-slot"><div class="slot-title">✅ 実際に食べた記録 <span class="tag">実食履歴</span></div>${records.map(r=>`<div class="actual-line"><strong>${escapeHtml(r.type)}｜${escapeHtml(r.place)}</strong><span>${escapeHtml(r.menu)}</span><span class="group"><button class="btn outline" data-editrecord="${attr(r.id)}">修正</button><button class="btn ghost" data-delrecord="${attr(r.id)}">削除</button></span></div>`).join('')}</div>`:''}
+ function actualBlock(records){return records.length?`<div class="time-slot actual-slot"><div class="slot-title">✅ 食べた献立の履歴 <span class="tag">記録済み</span></div>${records.map(r=>`<div class="actual-line"><strong>${escapeHtml(r.type)}｜${escapeHtml(r.place)}</strong><span>${escapeHtml(r.menu)}</span><span class="group"><button class="btn outline" data-editrecord="${attr(r.id)}">献立を記録・編集</button><button class="btn ghost" data-delrecord="${attr(r.id)}">削除</button></span></div>`).join('')}</div>`:''}
  return `<div class="days">${dates.map(d=>{
    const v=groupByDate.get(d),ms=v.menus;
    const lunchAtHome=ms.some(m=>m.type==='昼');
@@ -392,11 +413,11 @@ function menuCards(mode="current",selectedMonth=null){
 }
 let monthChoice=null;const monthList=()=>[...new Set([...data.menus,...data.schools,...data.records].map(x=>x.date.slice(0,7)))].sort();
 function monthBar(mode){const months=monthList().filter(m=>mode==='past'?m<=today().slice(0,7):m>=today().slice(0,7));if(monthChoice&&!months.includes(monthChoice))monthChoice=null;return `<div class="month-tabs">${months.map(m=>`<button class="month-pill ${monthChoice===m?'active':''}" data-month="${m}">${m.split('-')[1]*1}月</button>`).join('')}<button class="month-pill ${!monthChoice?'active':''}" data-month="all">すべて</button></div>`}
-function pastView(){return `<div class="section-title"><h2>🗓 過去献立</h2></div><p class="sub">今日より前の献立と給食、実際に食べた記録を確認できます。</p>${monthBar('past')}${menuCards('past',monthChoice)}<button class="btn outline" data-gomenu>← 献立へ戻る</button>`}
-function menuView(){const sets=allMealSets();return `<div class="section-title"><h2>🍲 1日の献立と給食</h2><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn outline" id="schoolUploadOpen">📷 給食をアップ</button><button class="btn" data-addrecord="">＋ 食べたものを記録</button></div></div>
+function pastView(){return `<div class="section-title"><h2>🗓 過去献立</h2></div><p class="sub">今日より前の献立と給食を確認・編集できます。</p>${monthBar('past')}${menuCards('past',monthChoice)}<button class="btn outline" data-gomenu>← 献立へ戻る</button>`}
+function menuView(){const sets=allMealSets();return `<div class="section-title"><h2>🍲 1日の献立と給食</h2><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn outline" id="schoolUploadOpen">📷 給食をアップ</button><button class="btn" data-addrecord="">＋ 献立を記録・編集</button></div></div>
 <div class="card"><button class="btn outline" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center" data-openlibrary=""><span>✨ 献立を選ぶ <span class="pill">全${sets.length}種類・実食から自動更新</span></span><span>›</span></button><p class="small">別ページで献立セットを見たり、料理を自由に組み合わせたりできます。</p></div>
 ${menuCards()}`}
-function setsView(){return `<div class="section-title"><button class="btn outline" data-backlibrary="">← 献立に戻る</button></div><div class="card"><h2>🍽 今日の献立を選ぶ</h2><div class="filterchips" style="margin:14px 0"><button class="${chooseSource==='sets'?'active':''}" data-choosesource="sets">📚 登録済み献立セットから選ぶ</button><button class="${chooseSource==='foods'?'active':''}" data-choosesource="foods">💚 好みから選ぶ</button></div>${chooseSource==='sets'?setCards():`${pickedPanel()}${preferencePicker()}`}</div>`}
+function setsView(){return `<div class="section-title"><button class="btn outline" data-backlibrary="">← 献立に戻る</button></div><div class="card"><h2>🍽 献立を選ぶ</h2><div class="filterchips" style="margin:14px 0"><button class="${chooseSource==='sets'?'active':''}" data-choosesource="sets">📚 登録済み献立セットから選ぶ</button><button class="${chooseSource==='foods'?'active':''}" data-choosesource="foods">💚 好みから選ぶ</button></div>${chooseSource==='sets'?setCards():`${pickedPanel()}${preferencePicker()}`}</div>`}
 function foodsView(){const arr=data.foods.filter(f=>(cat==='すべて'||f.categories.includes(cat))&&f.name.toLowerCase().includes(query.toLowerCase()));return `<div class="section-title"><h2>💚 料理と家族の好み</h2><button class="btn" data-newfood>＋ 料理を追加</button></div><div class="card"><input class="search" id="foodSearch" type="search" value="${attr(query)}" placeholder="料理名で検索"><div class="sp"></div><div class="filterchips">${categories.map(c=>`<button class="${cat===c?'active':''}" data-cat="${c}">${c}</button>`).join('')}</div><div class="small" style="margin-top:10px">${arr.length}品を表示 / 合計${data.foods.length}品。好みの最終変更日は子ども別に確認できます。</div></div><div class="itemlist">${arr.map(f=>`<div class="fooditem">${coverFor(f.name)}<h3>${escapeHtml(f.name)}</h3><div><span class="pill">👦 ${escapeHtml(f.ryo_preference)}</span><span class="pill">👧 ${escapeHtml(f.aoi_preference)}</span></div><div class="meta">りょう：${escapeHtml(upDate(f,'りょう'))}<div>あおい：${escapeHtml(upDate(f,'あおい'))}</div></div><button class="btn outline" style="margin-top:11px" data-editfood="${f.id}">好みを編集</button></div>`).join('')}</div>`}
 function settingsView(){return `<h2>⚙️ アプリ設定</h2><div class="card"><h3>🔐 家族共有・同期</h3><p>ログイン中：${escapeHtml(remoteUser?.email||'')}</p><p class="sub">料理・献立・実食記録・給食・好みはNotionに直接保存します。Supabaseはログイン認証と安全なAPI中継だけに使います。料理写真はNotionの料理マスタDBから読み込みます。</p><button class="btn outline" id="syncNow" onclick="window.location.reload()">↻ データを再取得</button> <button class="btn outline" id="logoutNow" onclick="remoteLogout()">ログアウト</button></div>`}
 function render(){document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===(tab==='sets'?'menu':tab)));$('pagetitle').textContent=({menu:'献立をえらぶ',past:'過去献立',foods:'好き嫌いを記録',settings:'アプリの設定',sets:'献立を選ぶ'})[tab];$('app').innerHTML=({menu:menuView,past:pastView,foods:foodsView,settings:settingsView,sets:setsView})[tab]();
@@ -454,7 +475,7 @@ function detail(m){menuFocus=m;const main=mainOf(m);
  ${lastServed?`<div class="previous-meal">🕘 前回：${escapeHtml(dateText(lastServed.date))}</div>`:''}
  <h3>🍽 献立メニュー</h3><p class="sub">見たい料理を選ぶと、写真・材料・作り方・参考レシピを確認できます。</p>
  <div class="dishes">${orderedMealItems(m.items).map((x,i)=>`<button type="button" class="dish dish-open" data-dishindex="${i}"><span>${dishIcon(x)} ${escapeHtml(dishRole(x,i))}</span>${coverFor(x,'dish-thumb')}<strong>${escapeHtml(x)}</strong><small>レシピをみる ›</small></button>`).join('')}</div>
- <div class="group"><button class="btn" data-fromdetail>🍴 実際に食べた献立を記録</button></div>`;
+ <div class="group"><button class="btn" data-fromdetail>✏️ 献立を記録・編集</button></div>`;
  $('detailDialog').hidden=false;document.querySelector('main.wrap').classList.add('detail-mode');window.scrollTo(0,0);
 }
 const recCategories=['すべて','主食・メイン','主菜・おかず','副菜','汁物','デザート','お菓子'];
@@ -496,7 +517,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
  if(t.hasAttribute('data-backdetail'))hideDetail();
  if(t.dataset.close)$(t.dataset.close).close();
  if(t.dataset.fromdetail!==undefined){hideDetail();const m=menuFocus;openRecord({date:m.date||today(),type:m.type||'夕',menu:m.items.join('、')})}
- if(t.dataset.addrecord!==undefined)openRecord({type:t.dataset.addrecord||'朝'});
+ if(t.dataset.addrecord!==undefined){const type=t.dataset.addrecord||'朝';const date=t.closest('[id^="day-"]')?.id?.slice(4)||today();const old=data.menus.find(m=>m.date===date&&m.type===type);registerSelected(old?.items||[],type,old||null,date)}
  if(t.hasAttribute('data-openlibrary')){tab='sets';render();window.scrollTo(0,0);return}
  if(t.hasAttribute('data-backlibrary')){tab='menu';render();window.scrollTo(0,0);return}
  if(t.hasAttribute('data-toggle-dish')){const dish=t.dataset.toggleDish;setPicked=setPicked.includes(dish)?setPicked.filter(x=>x!==dish):[...setPicked,dish];render();return}
@@ -509,7 +530,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
  if(t.dataset.chooseset!==undefined){chooseSet(t.dataset.chooseset);return}
  if(t.dataset.recset){detail({items:t.dataset.recset.split('、'),date:null,type:null})}
  if(t.dataset.editmenu){const m=data.menus.find(x=>x.id===t.dataset.editmenu);if(m)registerSelected(m.items,m.type,m);return}
- if(t.dataset.editrecord){const r=data.records.find(x=>x.id===t.dataset.editrecord);if(r)openRecord({record:r})}
+ if(t.dataset.editrecord){const r=data.records.find(x=>x.id===t.dataset.editrecord);if(r)registerSelected(r.menu.split(/[、，,]/).map(x=>x.trim()).filter(Boolean),r.type,{id:r.id,date:r.date,type:r.type,status:'実食'})}
  if(t.dataset.delrecord){if(confirm('この実食履歴を家族共有データから削除しますか？')){remoteDelete('menus',t.dataset.delrecord).then(()=>remoteReload()).then(()=>{render();toast('実食履歴を削除しました')}).catch(err=>toast('削除できません：'+err.message))}}
  if(t.dataset.cat){cat=t.dataset.cat;render()}
  if(t.dataset.newfood!==undefined){addFoodToSelection=false;openFood()};
