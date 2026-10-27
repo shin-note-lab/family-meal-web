@@ -836,7 +836,7 @@ function menuCards(mode="current",selectedMonth=null,selectedWeek=null){
    function compactMeal(type,label,icon){
     const found=ms.filter(m=>m.type===type);
     const summary=found.length?orderedMealItems(found[0].items).join('・'):'未登録';
-    const action=found.length?`data-editmenu="${attr(found[0].id)}"`:`data-addrecord="${attr(type)}"`;
+    const action=found.length?`data-detail="${attr(found[0].id)}"`:`data-addrecord="${attr(type)}"`;
     return `<button type="button" class="compact-slot compact-navigate" ${action} aria-label="${attr(label)}の献立を開く"><span class="compact-label">${icon} ${label}</span><span class="compact-food">${escapeHtml(summary)}</span><span class="compact-arrow">›</span></button>`;
    }
    function compactLunch(){
@@ -845,7 +845,7 @@ function menuCards(mode="current",selectedMonth=null,selectedWeek=null){
     const ryo=school?.ryo||'',aoi=school?.aoi||'';
     const schoolText=school?`<span class="compact-school">👦 りょう：${escapeHtml(ryo||'献立未登録')}</span><span class="compact-school">👧 あおい：${escapeHtml(aoi||'献立未登録')}</span>`:'';
     const homeText=home?`<span class="compact-food">家庭：${escapeHtml(orderedMealItems(home.items).join('・'))}</span>`:'';
-    const action=home?`data-editmenu="${attr(home.id)}"`:`data-addrecord="昼"`;
+    const action=home?`data-detail="${attr(home.id)}"`:`data-addrecord="昼"`;
     return `<div class="compact-lunch"><button type="button" class="compact-slot compact-navigate compact-lunch-home" ${action}><span class="compact-label">🍚 昼ごはん <span class="compact-arrow">›</span></span>${homeText||'<span class="compact-unset">家庭の献立：未登録</span>'}</button>${school?`<div class="compact-lunch-school"><strong>🏫 学校・保育所の給食</strong>${schoolText}</div>`:''}</div>`;
    }
    const bentos=ms.some(m=>m.type==='弁当')?`<div class="compact-extra">${homeSlot(ms,'弁当')}</div>`:'';
@@ -1191,7 +1191,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
  if(t.dataset.backmenu!==undefined){$('dishDialog').close();if(menuFocus)detail(menuFocus)}
  if(t.hasAttribute('data-backdetail'))hideDetail();
  if(t.dataset.close)$(t.dataset.close).close();
- if(t.dataset.fromdetail!==undefined){hideDetail();const m=menuFocus;openRecord({date:m.date||today(),type:m.type||'夕',menu:m.items.join('、')})}
+ if(t.dataset.fromdetail!==undefined){const m=menuFocus;hideDetail();if(m?.id){registerSelected(m.items,m.type,m,m.date)}else if(m){registerSelected(m.items||[],m.type||'夕',null,m.date||today())}return}
  if(t.dataset.addrecord!==undefined){const type=t.dataset.addrecord||'朝';const date=t.closest('[id^="day-"]')?.id?.slice(4)||today();const old=data.menus.find(m=>m.date===date&&m.type===type);registerSelected(old?.items||[],type,old||null,date)}
  if(t.hasAttribute('data-openlibrary')){tab='sets';render();window.scrollTo(0,0);return}
  if(t.hasAttribute('data-backlibrary')){tab='menu';render();window.scrollTo(0,0);return}
