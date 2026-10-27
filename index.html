@@ -116,7 +116,7 @@
 <dialog class="sheet" id="foodDialog"><div class="sheet-header"><h2 id="foodDialogTitle">料理の好み</h2><button class="close" data-close="foodDialog">×</button></div><div class="sheet-inner"><form id="foodForm">
 <div class="field"><label for="foodName">料理名</label><input id="foodName" maxlength="100" required></div><div class="field"><label for="foodCategory">分類</label><select id="foodCategory"><option>主食・メイン</option><option>主菜・おかず</option><option>汁物</option><option>副菜</option><option>デザート</option><option>お菓子</option></select></div>
 <div class="pair"><div class="field"><label for="foodRyo">👦 りょうの好み</label><select id="foodRyo"></select></div><div class="field"><label for="foodAoi">👧 あおいの好み</label><select id="foodAoi"></select></div></div>
-<div class="field"><label for="foodNote">食べ方などのメモ</label><textarea id="foodNote" maxlength="300"></textarea></div><div class="field"><label for="foodPhoto">📷 写真（端末内プレビュー）</label><input type="file" accept="image/*" id="foodPhoto"><div class="small">小さな画像を端末内に試し保存。共有・Notionへの送信はまだしません。</div></div>
+<div class="field"><label for="foodNote">食べ方などのメモ</label><textarea id="foodNote" maxlength="300"></textarea></div><div class="field"><label for="foodRecipeUrl">🔗 参考レシピURL（Notionに保存）</label><input id="foodRecipeUrl" type="url" placeholder="https://..." inputmode="url"><p class="small">レシピサイトで探して、気に入ったページのURLを貼り付けてください。</p><button type="button" class="btn outline" id="foodRecipeSearch">🔎 この料理の参考レシピを探す</button></div><div class="field"><label for="foodPhoto">📷 写真（端末内プレビュー）</label><input type="file" accept="image/*" id="foodPhoto"><div class="small">小さな画像を端末内に試し保存。共有・Notionへの送信はまだしません。</div></div>
 <input type="hidden" id="foodId"><div class="lastrow"><button class="btn ghost" type="button" data-close="foodDialog">閉じる</button><button class="btn" type="submit">保存</button></div></form></div></dialog>
 <div class="toast" id="toast" role="status"></div>
 <script>window.PREVIEW_SEED={foods:[],menus:[],school:[]};</script><script>
@@ -465,15 +465,17 @@ function dishRole(item,index){
  if(found?.categories?.includes('副菜')||/サラダ|煮物|ブロッコリー/.test(item))return '副菜';
  return index===0?'メイン料理':'おかず・主食';
 }
+function recipeSearchUrl(name){return 'https://www.google.com/search?q='+encodeURIComponent(name+' レシピ 作り方')}
+function safeRecipeUrl(v){try{const u=new URL(v);return u.protocol==='https:'||u.protocol==='http:'?u.href:''}catch{return ''}}
 function referenceHtml(dish,recipe){
  const match=matches(dish);
- let link=recipe.source||null;
- const goodUrl = link&&/^https:\/\/[^\s<>"']+$/.test(link);
- const photoUrl=match?.recipe_link;
- // Notion field originally named 写真出典; never mislabel general photo-credit URLs as verified recipe links.
- return `<div class="reference-box"><h3>🔗 参考レシピ</h3>${goodUrl?`<a href="${attr(link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(recipe.sourceName||'参考レシピを開く')} ↗</a>`:'<p class="small">参考レシピ未登録</p>'}
- ${photoUrl&&/^https:\/\//.test(photoUrl)&&photoUrl!==link?`<p class="small"><a href="${attr(photoUrl)}" target="_blank" rel="noopener noreferrer">Notionに登録された参考情報・写真の出典 ↗</a></p>`:''}
- <div class="small">アプリ内の材料・手順は家庭向けの例です。リンク先と同一の分量・手順とは限りません。</div></div>`;
+ const saved=safeRecipeUrl(match?.recipe_url||match?.recipe_link||'');
+ const builtIn=safeRecipeUrl(recipe.source||'');
+ const link=saved||builtIn;
+ return `<div class="reference-box"><h3>🔗 参考レシピ</h3>${link?`<p><a href="${attr(link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(saved?'保存した参考レシピを開く':recipe.sourceName||'参考レシピを開く')} ↗</a></p>`:'<p class="small">参考レシピはまだ登録されていません。</p>'}
+ <p><a href="${attr(recipeSearchUrl(dish))}" target="_blank" rel="noopener noreferrer">🔎 「${escapeHtml(dish)}」の参考レシピを探す ↗</a></p>
+ ${match?.id?`<button type="button" class="btn outline" data-editfood="${attr(match.id)}">${saved?'✏️ 保存したレシピURLを変更':'＋ 気に入ったレシピURLをNotionに登録'}</button>`:'<p class="small">レシピを保存するには、まずこの料理を「好み」に登録してください。</p>'}
+ <div class="small">検索結果から選んだレシピURLを登録できます。検索結果の自動選定・無断保存は行いません。</div></div>`;
 }
 function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
 function openDish(name,index=0){
@@ -528,7 +530,7 @@ function prepareRecNewFood(){
  $('recNewFood').open=false;recActiveCategory='すべて';
 }
 function openRecord(props={}){const r=props.record||null;$('recordLabel').textContent='献立を記録・編集';$('recId').value=r?.id||'';$('recDate').value=r?.date||props.date||today();$('recType').value=r?.type||props.type||'朝';$('recMenu').value=r?.menu||props.menu||'';$('recPlace').value=r?.place||'自宅';$('recMemo').value=r?.memo||'';prepareRecNewFood();$('recFoodSearch').value='';renderRecChoices();$('recordDialog').showModal()}
-function openFood(food=null){$('foodForm').reset();$('foodId').value=food?.id||'';$('foodDialogTitle').textContent=food?'好みを変更':'料理を新しく登録';$('foodName').value=food?.name||'';$('foodCategory').value=food?.categories?.[0]||'主食・メイン';$('foodRyo').value=food?.ryo_preference||'未確認';$('foodAoi').value=food?.aoi_preference||'未確認';$('foodNote').value=food?.note||'';$('foodDialog').showModal()}
+function openFood(food=null){$('foodForm').reset();$('foodId').value=food?.id||'';$('foodDialogTitle').textContent=food?'好みを変更':'料理を新しく登録';$('foodName').value=food?.name||'';$('foodCategory').value=food?.categories?.[0]||'主食・メイン';$('foodRyo').value=food?.ryo_preference||'未確認';$('foodAoi').value=food?.aoi_preference||'未確認';$('foodNote').value=food?.note||'';$('foodRecipeUrl').value=food?.recipe_url||food?.recipe_link||'';$('foodDialog').showModal()}
 for(const id of ['foodRyo','foodAoi']) $(id).innerHTML=allowed.map(x=>`<option>${x}</option>`).join('');
 // All editing actions in this preview are local-only, never network.
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;if(tab!=='foods')returnToMenuEditor=false;monthChoice=null;render();scrollTo({top:0,behavior:'smooth'})}));
@@ -618,11 +620,13 @@ $('recordForm').addEventListener('submit',async e=>{
  await remoteReload();$('recordDialog').close();render();toast('実食記録を家族共有に保存しました ✓');
  }catch(err){alert('実食記録を保存できませんでした。\n'+err.message)}finally{if(btn)btn.disabled=false}
 });
+$('foodRecipeSearch').addEventListener('click',()=>{const name=$('foodName').value.trim();if(!name){toast('先に料理名を入力してください');return}window.open(recipeSearchUrl(name),'_blank','noopener,noreferrer')});
 $('foodForm').addEventListener('submit',async e=>{
  e.preventDefault();const oldId=$('foodId').value;const old=data.foods.find(x=>x.id===oldId)||null;
  const n=$('foodName').value.trim();if(!n){toast('料理名を入力してください');return}
  if(data.foods.some(x=>x.name===n&&x.id!==oldId)){toast('同じ料理名が登録されています');return}
- const f={name:n,categories:[$('foodCategory').value],ryo_preference:$('foodRyo').value,aoi_preference:$('foodAoi').value,ryo_note:old?(old.ryo_note||''):$('foodNote').value.trim(),aoi_note:old?(old.aoi_note||''):$('foodNote').value.trim()};
+ const url=$('foodRecipeUrl').value.trim();if(url&&!safeRecipeUrl(url)){toast('参考レシピURLはhttp/httpsのURLを入力してください');return}
+ const f={name:n,categories:[$('foodCategory').value],ryo_preference:$('foodRyo').value,aoi_preference:$('foodAoi').value,ryo_note:old?(old.ryo_note||''):$('foodNote').value.trim(),aoi_note:old?(old.aoi_note||''):$('foodNote').value.trim(),recipe_url:$('foodRecipeUrl').value.trim()};
  const btn=e.submitter;if(btn)btn.disabled=true;
  try{
  let savedFoodId=oldId;
