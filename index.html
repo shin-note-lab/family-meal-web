@@ -110,7 +110,7 @@
 <div class="intro"><div><div class="eyebrow">FAMILY MEAL PLANNER</div><h1 id="pagetitle">1日のごはんをみる</h1><div class="sub">今日からの献立は月単位で確認。過去は「過去献立」から 🌿</div></div><span class="tag" id="previewtag">家族共有で同期</span></div>
 <nav class="tabs" aria-label="メインタブ"><button class="active" data-tab="menu">📅 献立</button><button data-tab="past">🗓 過去献立</button><button data-tab="foods">💚 好み</button><button data-tab="settings">⚙ 設定</button></nav>
 <div id="app"></div>
-<div class="footer-note">料理・献立・実食記録・給食・好み・新規登録する料理写真はNotionに直接保存します。Supabaseは認証・安全なAPI中継に使用します。</div>
+<div class="footer-note">家族で登録した献立や料理の好みは、みんなで共有できます。</div>
 </main>
 <section class="detail-page" id="detailDialog" hidden><div class="detail-page-header"><button type="button" class="btn outline" data-backdetail>← 戻る</button><h2 id="detailLabel">献立メニュー</h2></div><div class="sheet-inner" id="detailBody"></div></section>
 <dialog class="sheet dish-sheet" id="dishDialog" aria-label="料理のレシピ詳細"><div class="sheet-header"><h2 id="dishLabel">料理のレシピ</h2><button class="close" data-close="dishDialog" aria-label="閉じる">×</button></div><div class="sheet-inner" id="dishBody"></div></dialog>
@@ -142,7 +142,7 @@
 <dialog class="sheet" id="foodDialog"><div class="sheet-header"><h2 id="foodDialogTitle">料理の好み</h2><button class="close" data-close="foodDialog">×</button></div><div class="sheet-inner"><form id="foodForm">
 <div class="field"><label for="foodName">料理名</label><input id="foodName" maxlength="100" required></div><div class="field"><label for="foodCategory">分類</label><select id="foodCategory"><option>主食・メイン</option><option>主菜・おかず</option><option>汁物</option><option>副菜</option><option>デザート</option><option>お菓子</option></select></div>
 <div class="pair"><div class="field"><label for="foodRyo">👦 りょうの好み</label><select id="foodRyo"></select></div><div class="field"><label for="foodAoi">👧 あおいの好み</label><select id="foodAoi"></select></div></div>
-<div class="field"><label for="foodNote">食べ方などのメモ</label><textarea id="foodNote" maxlength="300"></textarea></div><div class="field"><label for="foodRecipeUrl">⭐ わが家の定番レシピURL（Notionに保存）</label><input id="foodRecipeUrl" type="url" placeholder="https://..." inputmode="url"><p class="small">「これがよかった」と思ったレシピのURLを登録。次回も同じレシピを開きます。</p><button type="button" class="btn outline" id="foodRecipeSearch">🔎 定番にするレシピを探す</button></div><div class="field"><label for="foodRecipePhotoUrl">🖼️ 写真ファイルのURL（任意）</label><input id="foodRecipePhotoUrl" type="url" placeholder="https://...（レシピ掲載写真のURL）" inputmode="url"><p class="small">ここにはレシピページのURLではなく、画像そのもののURLを入力してください（例：.jpg / .png / .webp）。レシピページのURLは上の欄に入力します。画像URLが分からない場合は下の「写真をアップロード」を使えます。</p></div><div class="field"><label for="foodPhoto">📷 写真をアップロード（任意）</label><input type="file" accept="image/*" id="foodPhoto"><div class="small">選択した画像はNotionに保存します。既存写真がある場合は確認してから変更します。</div></div>
+<div class="field"><label for="foodNote">食べ方などのメモ</label><textarea id="foodNote" maxlength="300"></textarea></div><div class="field"><label for="foodRecipeUrl">⭐ わが家の定番レシピURL</label><input id="foodRecipeUrl" type="url" placeholder="https://..." inputmode="url"><p class="small">「これがよかった」と思ったレシピのURLを登録。次回も同じレシピを開きます。</p><button type="button" class="btn outline" id="foodRecipeSearch">🔎 定番にするレシピを探す</button></div><div class="field"><label for="foodPhoto">📷 写真をアップロード（任意）</label><input type="file" accept="image/*" id="foodPhoto"><div class="small">選択した写真を登録します。すでに写真がある場合は確認します。</div></div>
 <input type="hidden" id="foodId"><div class="lastrow"><button class="btn ghost" type="button" data-close="foodDialog">閉じる</button><button class="btn" type="submit">保存</button></div></form></div></dialog>
 <div class="toast" id="toast" role="status"></div>
 <script>window.PREVIEW_SEED={foods:[],menus:[],school:[]};</script><script>
@@ -182,7 +182,7 @@ async function notionGateway(table,action,row=null,id=null,data_url=null){
 async function remoteInsert(table,row){return notionGateway(table,'create',row)}
 async function remoteUpdate(table,id,row){return notionGateway(table,'update',row,id)}
 async function remoteDelete(table,id){return notionGateway(table,'delete',null,id)}
-async function retryNotionPending(){toast('すべてNotionに直接保存する方式です。再同期は不要です。')}
+async function retryNotionPending(){toast('データは自動で共有されています。')}
 async function remoteNotion(body){throw Error('旧同期APIは廃止しました')}
 function remoteDecodeRecord(row){let place='自宅',memo=row.notes||'';if(memo.startsWith('[MEAL_RECORD_V1]')){try{const obj=JSON.parse(memo.slice(16));place=obj.place||place;memo=obj.memo||''}catch{}}
  return {id:row.id,date:row.meal_date,type:row.meal_type,menu:row.description,place,memo,savedAt:row.updated_at||''}}
@@ -380,7 +380,7 @@ $('setRegisterForm').addEventListener('submit',async e=>{
  const btn=e.submitter;if(btn)btn.disabled=true;
  try{for(const name of missingFoods){await remoteInsert('foods',{name,categories:['主食・メイン'],ryo_preference:'未確認',aoi_preference:'未確認',ryo_note:'',aoi_note:''})}const payload={meal_date:d,meal_type:type,description:pendingSetItems.join('、'),state:pendingEditMenuId?(data.menus.find(m=>m.id===pendingEditMenuId)?.status||'採用'):'採用',notes:''};
  if(pendingEditMenuId)await remoteUpdate('menus',pendingEditMenuId,payload);else if(old)await remoteUpdate('menus',old.id,payload);else await remoteInsert('menus',payload);
- await remoteReload();$('setRegisterDialog').close();pendingEditMenuId=null;setPicked=[];tab='menu';render();window.scrollTo(0,0);toast('献立をNotionに保存しました ✓')
+ await remoteReload();$('setRegisterDialog').close();pendingEditMenuId=null;setPicked=[];tab='menu';render();window.scrollTo(0,0);toast('保存しました')
  }catch(err){alert('献立を登録できませんでした。\n'+err.message)}finally{if(btn)btn.disabled=false}
 });
 function nextSuggest(){const recent=recentMeals().slice(0,12).flatMap(r=>r.menu.split(/[、，,\/]/).map(x=>x.trim()));const seen=new Set(recent);
@@ -399,7 +399,7 @@ const recipeDb={
 Object.assign(recipeDb,{
  '卵焼き':{minutes:10,ingredients:['卵','砂糖','しょうゆ','油'],steps:['卵をよく溶き、調味料を混ぜます。','油をなじませた卵焼き器で少しずつ巻き、中心まで十分に焼きます。'],source:'https://www.kikkoman.co.jp/homecook/search/recipe/00051330/',sourceName:'キッコーマン'},
  '焼きおにぎり':{minutes:10,ingredients:['温かいご飯','しょうゆ','油'],steps:['ご飯を小さめのおにぎりにします。','フライパンで両面を焼き、しょうゆをまわして軽く焼きます。'],source:'https://www.kikkoman.co.jp/homecook/search/recipe/00003248/',sourceName:'キッコーマン'},
- 'コーンスープ（牛乳入り）':{minutes:8,ingredients:['クリームコーン','牛乳','塩','コンソメ少量'],steps:['クリームコーンと牛乳を鍋に入れ、弱火で温めます。','沸騰させすぎないよう混ぜ、塩などで味を整えます。'],source:'https://oceans-nadia.com/user/579331/recipe/419142',sourceName:'Nadia（Notion登録の参考先）'},
+ 'コーンスープ（牛乳入り）':{minutes:8,ingredients:['クリームコーン','牛乳','塩','コンソメ少量'],steps:['クリームコーンと牛乳を鍋に入れ、弱火で温めます。','沸騰させすぎないよう混ぜ、塩などで味を整えます。'],source:'https://oceans-nadia.com/user/579331/recipe/419142',sourceName:'Nadia'},
  'コーンスープ':{minutes:8,ingredients:['クリームコーン','牛乳','塩','コンソメ少量'],steps:['クリームコーンと牛乳を弱火で温めます。','とろみと味を確認して盛り付けます。']},
  'ゆでブロッコリー':{minutes:6,ingredients:['ブロッコリー','水','塩少々'],steps:['小房に分けてよく洗います。','好みの固さにゆで、水を切ります。','家族共通の料理にし、ドレッシングは食卓で各自調整します。']},
  '鮭おにぎり':{minutes:10,ingredients:['ご飯','加熱済みの鮭','塩少々'],steps:['鮭を加熱して骨がないことを確認し、ほぐします。','ご飯と混ぜ、食べやすい大きさのおにぎりにします。']},
@@ -485,7 +485,7 @@ function menuView(){const sets=allMealSets();return `<div class="section-title">
 ${weekTabs()}${menuCards("current",null,selectedWeek)}`}
 function setsView(){return `<div class="section-title"><button class="btn outline" data-backlibrary="">← 献立に戻る</button></div><div class="card"><h2>🍽 献立を選ぶ</h2><div class="filterchips" style="margin:14px 0"><button class="${chooseSource==='sets'?'active':''}" data-choosesource="sets">📚 登録済み献立セットから選ぶ</button><button class="${chooseSource==='foods'?'active':''}" data-choosesource="foods">💚 好みから選ぶ</button></div>${chooseSource==='sets'?setCards():`${pickedPanel()}${preferencePicker()}`}</div>`}
 function foodsView(){const arr=data.foods.filter(f=>(cat==='すべて'||f.categories.includes(cat))&&f.name.toLowerCase().includes(query.toLowerCase()));return `${returnToMenuEditor?'<div class="card" style="margin-bottom:14px;background:#f3f9f5"><strong>🍽 献立の編集中</strong><p class="small">ここで新しい料理を登録できます。登録後は献立編集画面に戻ります。</p><button type="button" class="btn outline" data-return-menu-editor>← 献立編集に戻る</button></div>':''}<div class="section-title"><h2>💚 料理と家族の好み</h2><button class="btn" data-newfood>＋ 料理を追加</button></div><div class="card"><input class="search" id="foodSearch" type="search" value="${attr(query)}" placeholder="料理名で検索"><div class="sp"></div><div class="filterchips">${categories.map(c=>`<button class="${cat===c?'active':''}" data-cat="${c}">${c}</button>`).join('')}</div><div class="small" style="margin-top:10px">${arr.length}品を表示 / 合計${data.foods.length}品。好みの最終変更日は子ども別に確認できます。</div></div><div class="itemlist">${arr.map(f=>`<div class="fooditem">${coverFor(f.name)}<h3>${escapeHtml(f.name)}</h3><div><span class="pill">👦 ${escapeHtml(f.ryo_preference)}</span><span class="pill">👧 ${escapeHtml(f.aoi_preference)}</span></div><div class="meta">りょう：${escapeHtml(upDate(f,'りょう'))}<div>あおい：${escapeHtml(upDate(f,'あおい'))}</div></div><button class="btn outline" style="margin-top:11px" data-editfood="${f.id}">好みを編集</button></div>`).join('')}</div>`}
-function settingsView(){return `<h2>⚙️ アプリ設定</h2><div class="card"><h3>🔐 家族共有・同期</h3><p>ログイン中：${escapeHtml(remoteUser?.email||'')}</p><p class="sub">料理・献立・実食記録・給食・好みはNotionに直接保存します。Supabaseはログイン認証と安全なAPI中継だけに使います。料理写真はNotionの料理マスタDBから読み込みます。</p><button class="btn outline" id="syncNow" onclick="window.location.reload()">↻ データを再取得</button> <button class="btn outline" id="logoutNow" onclick="remoteLogout()">ログアウト</button></div>`}
+function settingsView(){return `<h2>⚙️ アプリ設定</h2><div class="card"><h3>🔐 家族共有・同期</h3><p>ログイン中：${escapeHtml(remoteUser?.email||'')}</p><p class="sub">家族で登録した料理や献立は、みんなで共有できます。</p><button class="btn outline" id="syncNow" onclick="window.location.reload()">↻ データを再取得</button> <button class="btn outline" id="logoutNow" onclick="remoteLogout()">ログアウト</button></div>`}
 function render(){document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===(tab==='sets'?'menu':tab)));$('pagetitle').textContent=({menu:'献立をえらぶ',past:'過去献立',foods:'好き嫌いを記録',settings:'アプリの設定',sets:'献立を選ぶ'})[tab];$('app').innerHTML=({menu:menuView,past:pastView,foods:foodsView,settings:settingsView,sets:setsView})[tab]();
  const choiceSearch=$('chooseFoodSearch');if(choiceSearch){choiceSearch.addEventListener('input',e=>{chooseSearch=e.target.value;const p=e.target.selectionStart;render();const input=$('chooseFoodSearch');input.focus();input.setSelectionRange(p,p)})}
  const search=$('foodSearch');if(search){search.addEventListener('input',e=>{query=e.target.value;const p=e.target.selectionStart;render();$('foodSearch').focus();$('foodSearch').setSelectionRange(p,p)})}
@@ -529,7 +529,7 @@ async function searchFreePhoto(name){
   const entries=Object.values(result.query?.pages||{}).map(p=>({title:p.title,info:p.imageinfo?.[0]})).filter(p=>p.info?.thumburl&&/\.(jpe?g|png|webp)$/i.test(p.title));
   window.__commonsCandidates=entries;
   if(!entries.length){wrap.innerHTML='<strong>画像候補が見つかりませんでした。</strong><p class="small">別の料理名で探すか、手元の写真を登録してください。</p>';return}
-  wrap.innerHTML='<strong>🖼️ 写真候補を選ぶ</strong><p class="small">Wikimedia Commonsから取得。写真を確認して選択するとNotionへ保存します。ライセンス・出典は画像ページで確認できます。</p><div class="photo-candidates-grid">'+entries.slice(0,9).map((p,i)=>`<div class="photo-candidate-card"><button type="button" class="photo-candidate" data-commonsselect="${i}"><img loading="lazy" src="${attr(p.info.thumburl)}" alt="${attr(name)}の写真候補 ${i+1}"><span class="photo-candidate-label">写真候補 ${i+1}</span><span class="photo-candidate-sub">この写真を選ぶ</span></button><details class="photo-license"><summary>出典・利用条件</summary><div>利用条件：${escapeHtml(p.info.extmetadata?.LicenseShortName?.value||"未確認")}</div><a href="${attr(p.info.descriptionurl||"https://commons.wikimedia.org/")}" target="_blank" rel="noopener noreferrer">画像の出典ページを開く ↗</a></details></div>`).join('')+'</div><p class="small">画像ごとに利用条件が異なります。出典・ライセンスを確認してから選択してください。</p>';
+  wrap.innerHTML='<strong>🖼️ 写真候補を選ぶ</strong><p class="small">写真を確認して選べます。出典や利用条件は画像の詳細で確認できます。</p><div class="photo-candidates-grid">'+entries.slice(0,9).map((p,i)=>`<div class="photo-candidate-card"><button type="button" class="photo-candidate" data-commonsselect="${i}"><img loading="lazy" src="${attr(p.info.thumburl)}" alt="${attr(name)}の写真候補 ${i+1}"><span class="photo-candidate-label">写真候補 ${i+1}</span><span class="photo-candidate-sub">この写真を選ぶ</span></button><details class="photo-license"><summary>出典・利用条件</summary><div>利用条件：${escapeHtml(p.info.extmetadata?.LicenseShortName?.value||"未確認")}</div><a href="${attr(p.info.descriptionurl||"https://commons.wikimedia.org/")}" target="_blank" rel="noopener noreferrer">画像の出典ページを開く ↗</a></details></div>`).join('')+'</div><p class="small">画像ごとに利用条件が異なります。出典・ライセンスを確認してから選択してください。</p>';
   // Attach directly to the actual candidate buttons: no reliance on unrelated global click handlers.
   wrap.querySelectorAll('button[data-commonsselect]').forEach(btn=>{
    btn.addEventListener('click',event=>{
@@ -548,13 +548,13 @@ async function selectFreePhoto(i){
  const license=item.info.extmetadata?.LicenseShortName?.value||'ライセンス未確認';
  const source=item.info.descriptionurl||'https://commons.wikimedia.org/wiki/'+encodeURIComponent(item.title.replaceAll(' ','_'));
  if(!confirm('この写真を「'+name+'」に登録しますか？\n利用条件：'+license+'\n詳細は候補の「出典・利用条件」で確認できます。'))return;
- const wrap=document.getElementById('photoCandidates');wrap.innerHTML='<strong>写真をNotionに保存中…</strong>';
+ const wrap=document.getElementById('photoCandidates');wrap.innerHTML='<strong>写真を保存中…</strong>';
  try{
   const url=item.info.url||item.info.thumburl;
   if(!url)throw Error('画像URLが取得できません');
   if(!await remoteValid())throw Error('ログイン期限が切れました');
   await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'photo_external',id:food.id,image_url:url,photo_source:source}});
-  await remoteReload();$('dishDialog').close();openDish(name,0);toast('写真をNotionに登録しました ✓');
+  await remoteReload();$('dishDialog').close();openDish(name,0);toast('保存しました');
  }catch(err){wrap.innerHTML='<strong>写真を保存できませんでした</strong><p class="small">'+escapeHtml(err.message)+'</p><button class="btn outline" type="button" data-findfreephoto>もう一度探す</button>'}
 }
 function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-findfreephoto>🔎 無料写真を探す</button><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
@@ -612,7 +612,7 @@ function prepareRecNewFood(){
  $('recNewFood').open=false;recActiveCategory='すべて';
 }
 function openRecord(props={}){const r=props.record||null;$('recordLabel').textContent='献立を記録・編集';$('recId').value=r?.id||'';$('recDate').value=r?.date||props.date||today();$('recType').value=r?.type||props.type||'朝';$('recMenu').value=r?.menu||props.menu||'';$('recPlace').value=r?.place||'自宅';$('recMemo').value=r?.memo||'';prepareRecNewFood();$('recFoodSearch').value='';renderRecChoices();$('recordDialog').showModal()}
-function openFood(food=null){$('foodForm').reset();$('foodId').value=food?.id||'';$('foodDialogTitle').textContent=food?'好みを変更':'料理を新しく登録';$('foodName').value=food?.name||'';$('foodCategory').value=food?.categories?.[0]||'主食・メイン';$('foodRyo').value=food?.ryo_preference||'未確認';$('foodAoi').value=food?.aoi_preference||'未確認';$('foodNote').value=food?.note||'';$('foodRecipeUrl').value=food?.recipe_url||food?.recipe_link||'';$('foodRecipePhotoUrl').value='';$('foodDialog').showModal()}
+function openFood(food=null){$('foodForm').reset();$('foodId').value=food?.id||'';$('foodDialogTitle').textContent=food?'好みを変更':'料理を新しく登録';$('foodName').value=food?.name||'';$('foodCategory').value=food?.categories?.[0]||'主食・メイン';$('foodRyo').value=food?.ryo_preference||'未確認';$('foodAoi').value=food?.aoi_preference||'未確認';$('foodNote').value=food?.note||'';$('foodRecipeUrl').value=food?.recipe_url||food?.recipe_link||'';$('foodDialog').showModal()}
 for(const id of ['foodRyo','foodAoi']) $(id).innerHTML=allowed.map(x=>`<option>${x}</option>`).join('');
 // All editing actions in this preview are local-only, never network.
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;if(tab!=='foods')returnToMenuEditor=false;monthChoice=null;render();scrollTo({top:0,behavior:'smooth'})}));
@@ -620,7 +620,7 @@ let schoolParsed=[];
 function schoolUploadOpen(){schoolParsed=[];$('schoolReview').innerHTML='';$('schoolSave').disabled=true;$('schoolMonth').value=today().slice(0,7);$('schoolOcrStatus').textContent='写真を選び、OCRを実行してください。';$('schoolUploadDialog').showModal()}
 function parseSchoolLines(){const month=$('schoolMonth').value,target=$('schoolTarget').value;if(!month){alert('対象の月を選んでください');return}const lines=$('schoolOcrText').value.split(/\n/);const results=[];for(const line of lines){const m=line.match(/(?:\d{4}年)?\s*(?:(\d{1,2})月)?\s*(\d{1,2})日?\s*[（(]?[月火水木金土日]?[）)]?\s*[：:、\s\-]*(.+)/);if(!m)continue;const mm=String(m[1]||Number(month.slice(5))).padStart(2,'0'),dd=String(m[2]).padStart(2,'0');const date=month.slice(0,4)+'-'+mm+'-'+dd;const dt=new Date(date+'T12:00:00');if(isNaN(dt.getTime())||dt.getMonth()+1!==Number(mm)||date.slice(0,7)!==month)continue;const menu=m[3].trim();if(menu)results.push({date,menu,target})}schoolParsed=results;$('schoolReview').innerHTML=results.length?'<p class="small">'+results.length+'日分を抽出しました。内容を確認して保存してください。</p>'+results.map((x,i)=>'<div class="field"><label>'+escapeHtml(x.date)+'</label><input data-schoolrow="'+i+'" value="'+attr(x.menu)+'"></div>').join(''):'<p class="small">日付付きの行が見つかりませんでした。「10月28日 ごはん、焼き魚」の形式に修正してください。</p>';$('schoolSave').disabled=!results.length}
 async function runSchoolOcr(){const files=[...$('schoolPhotos').files];if(!files.length){alert('写真を選択してください');return}const status=$('schoolOcrStatus');const btn=$('schoolOcrRun');btn.disabled=true;try{status.textContent='OCRライブラリを読み込んでいます…';if(!window.Tesseract){await new Promise((resolve,reject)=>{const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';sc.onload=resolve;sc.onerror=()=>reject(Error('OCRライブラリの読み込みに失敗しました'));document.head.appendChild(sc)})}const worker=await Tesseract.createWorker('jpn');let text='';try{for(let i=0;i<files.length;i++){status.textContent=(i+1)+'/'+files.length+'枚を読み取り中…';const out=await worker.recognize(files[i]);text+='\n'+out.data.text}}finally{await worker.terminate()}$('schoolOcrText').value=text.trim();status.textContent='文字を読み取りました。誤字や日付を確認してから「日付別に整理」を押してください。';parseSchoolLines()}catch(e){status.textContent='自動OCRに失敗しました：'+e.message+'。下欄に文字を入力して登録できます。'}finally{btn.disabled=false}}
-async function saveSchool(){if(!schoolParsed.length)return;const rows=[...document.querySelectorAll('[data-schoolrow]')];const btn=$('schoolSave');btn.disabled=true;let done=0;try{for(const x of schoolParsed){const ix=schoolParsed.indexOf(x);const value=rows[ix]?.value.trim()||'';if(!value)continue;const existing=data.schools.find(r=>r.date===x.date);const weekday=new Date(x.date+'T12:00:00').getDay();const target=x.target;const row={meal_date:x.date,ryo_menu:target==='ryo'?value:existing?.ryo||'',aoi_menu:target==='aoi'?value:existing?.aoi||'',ryo_status:target==='ryo'?'給食あり':existing?.ryoStatus||'未確認',aoi_status:target==='aoi'?(weekday===0||weekday===6?'本人登園なし':'給食あり'):existing?.aoiStatus||'内容未確認'};if(existing?.id)await remoteUpdate('school_meals',existing.id,row);else await remoteInsert('school_meals',row);done++}await remoteReload();render();$('schoolUploadDialog').close();toast('給食'+done+'日分をNotionに保存しました ✓')}catch(e){alert(done+'日分保存後にエラー：'+e.message+'。再実行すると上書きされるため、内容を確認してください。')}finally{btn.disabled=false}}
+async function saveSchool(){if(!schoolParsed.length)return;const rows=[...document.querySelectorAll('[data-schoolrow]')];const btn=$('schoolSave');btn.disabled=true;let done=0;try{for(const x of schoolParsed){const ix=schoolParsed.indexOf(x);const value=rows[ix]?.value.trim()||'';if(!value)continue;const existing=data.schools.find(r=>r.date===x.date);const weekday=new Date(x.date+'T12:00:00').getDay();const target=x.target;const row={meal_date:x.date,ryo_menu:target==='ryo'?value:existing?.ryo||'',aoi_menu:target==='aoi'?value:existing?.aoi||'',ryo_status:target==='ryo'?'給食あり':existing?.ryoStatus||'未確認',aoi_status:target==='aoi'?(weekday===0||weekday===6?'本人登園なし':'給食あり'):existing?.aoiStatus||'内容未確認'};if(existing?.id)await remoteUpdate('school_meals',existing.id,row);else await remoteInsert('school_meals',row);done++}await remoteReload();render();$('schoolUploadDialog').close();toast('給食'+done+'日分を保存しました')}catch(e){alert(done+'日分保存後にエラー：'+e.message+'。再実行すると上書きされるため、内容を確認してください。')}finally{btn.disabled=false}}
 document.addEventListener('click',e=>{if(e.target.closest('#schoolUploadOpen'))schoolUploadOpen();if(e.target.closest('#schoolOcrRun'))runSchoolOcr();if(e.target.closest('#schoolParse'))parseSchoolLines();if(e.target.closest('#schoolSave'))saveSchool()});
 document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[data-backdetail],[data-close],[data-fromdetail],[data-addrecord],[data-recset],[data-chooseset],[data-setfilter],[data-choosesource],[data-newchoosefood],[data-choosecat],[data-openlibrary],[data-backlibrary],[data-toggle-dish],[data-savepicked],[data-clearpicked],[data-editrecord],[data-editmenu],[data-delrecord],[data-cat],[data-newfood],[data-editfood],[data-dishindex],[data-dishname],[data-backmenu],[data-gopast],[data-gomenu],[data-month],[data-week],[data-weekpage],[data-return-menu-editor],#resetPreview');if(!t)return;
  if(t.hasAttribute('data-return-menu-editor')){returnToMenuEditor=false;tab='menu';render();$('setRegisterDialog').showModal();renderEditMenuChoices();return}
@@ -661,7 +661,7 @@ document.addEventListener('click',e=>{
  const search=e.target.closest('[data-findfreephoto]');if(search){searchFreePhoto(window.__previewDishName);return}
  const chosen=e.target.closest('[data-commonsselect]');if(chosen){selectFreePhoto(Number(chosen.dataset.commonsselect));return}
  const del=e.target.closest('[data-photoaction="delete"]');
- if(del){const name=window.__previewDishName;if(name){delete data.photos?.[name];save();$('dishDialog').close();openDish(name,0);toast('端末の写真を削除しました。Notionの写真は変更されません')}return}
+ if(del){const name=window.__previewDishName;if(name){delete data.photos?.[name];save();$('dishDialog').close();openDish(name,0);toast('端末に保存した写真を削除しました。共有写真はそのままです')}return}
  if(!e.target.closest('#photoActionMenu')){const menu=document.getElementById('photoActionMenu');if(menu)menu.hidden=true}
 });
 document.addEventListener('change',async e=>{
@@ -677,8 +677,8 @@ document.addEventListener('change',async e=>{
    const food=data.foods.find(f=>f.name===name);if(!food)throw Error('先に料理マスタに登録してください');
    await notionGateway('foods','photo',null,food.id,canvas.toDataURL('image/jpeg',.7));
    await remoteReload();$('dishDialog').close();openDish(name,0);
-   toast('写真をNotionの料理マスタDBに保存しました ✓');
- }catch(err){toast('写真をNotionに保存できません：'+err.message)}
+   toast('保存しました');
+ }catch(err){toast('写真を保存できませんでした：'+err.message)}
 });
 $('recFoodSearch').addEventListener('input',renderRecChoices);
 $('recFoodTabs').addEventListener('click',e=>{const b=e.target.closest('[data-reccat]');if(!b)return;recActiveCategory=b.dataset.reccat;renderRecChoices()});
@@ -701,7 +701,7 @@ $('recordForm').addEventListener('submit',async e=>{
  for(const item of pendingRecFoods){if(!recNames().includes(item.name)||data.foods.some(f=>f.name===item.name))continue;await remoteInsert('foods',{name:item.name,categories:item.categories,ryo_preference:item.ryo_preference,aoi_preference:item.aoi_preference,ryo_note:item.note||'',aoi_note:item.note||''})}
  const payload={meal_date:r.date,meal_type:r.type,description:r.menu,state:'実食',notes:'[MEAL_RECORD_V1]'+JSON.stringify({place:r.place,memo:r.memo})};
  if(oldId)await remoteUpdate('menus',oldId,payload);else await remoteInsert('menus',payload);
- await remoteReload();$('recordDialog').close();render();toast('実食記録を家族共有に保存しました ✓');
+ await remoteReload();$('recordDialog').close();render();toast('保存しました');
  }catch(err){alert('実食記録を保存できませんでした。\n'+err.message)}finally{if(btn)btn.disabled=false}
 });
 $('foodRecipeSearch').addEventListener('click',()=>{const name=$('foodName').value.trim();if(!name){toast('先に料理名を入力してください');return}window.open(recipeSearchUrl(name),'_blank','noopener,noreferrer')});
@@ -709,7 +709,7 @@ $('foodForm').addEventListener('submit',async e=>{
  e.preventDefault();const oldId=$('foodId').value;const old=data.foods.find(x=>x.id===oldId)||null;
  const n=$('foodName').value.trim();if(!n){toast('料理名を入力してください');return}
  if(data.foods.some(x=>x.name===n&&x.id!==oldId)){toast('同じ料理名が登録されています');return}
- const url=$('foodRecipeUrl').value.trim();const photoUrl=$('foodRecipePhotoUrl').value.trim();if(photoUrl&&!safeRecipeUrl(photoUrl)){toast('写真URLはhttp/httpsのURLを入力してください');return}if(photoUrl&&(photoUrl===url||/\/(recipes?|articles?)\//i.test(new URL(photoUrl).pathname)&&!/\.(jpe?g|png|webp|gif|avif)(?:$|[?#])/i.test(photoUrl))){toast('これはレシピページのURLです。写真そのもののURLを入力するか、画像をアップロードしてください');$('foodRecipePhotoUrl').focus();return}if(url&&!safeRecipeUrl(url)){toast('参考レシピURLはhttp/httpsのURLを入力してください');return}
+ const url=$('foodRecipeUrl').value.trim();if(url&&!safeRecipeUrl(url)){toast('参考レシピURLはhttp/httpsのURLを入力してください');return}
  const f={name:n,categories:[$('foodCategory').value],ryo_preference:$('foodRyo').value,aoi_preference:$('foodAoi').value,ryo_note:old?(old.ryo_note||''):$('foodNote').value.trim(),aoi_note:old?(old.aoi_note||''):$('foodNote').value.trim(),recipe_url:$('foodRecipeUrl').value.trim()};
  const btn=e.submitter;if(btn)btn.disabled=true;
  try{
@@ -719,15 +719,12 @@ $('foodForm').addEventListener('submit',async e=>{
   await remoteUpdate('foods',old.id,f);
  }else {const created=await remoteInsert('foods',f);savedFoodId=created[0]?.id;}
  const file=$('foodPhoto').files[0];
- if((photoUrl||file)&&old&&photoAvailable(old.name)&&!confirm('登録済みの料理写真があります。選んだレシピの写真で置き換えますか？')){
+ if(file&&old&&photoAvailable(old.name)&&!confirm('登録済みの料理写真があります。選んだレシピの写真で置き換えますか？')){
   // Keep the existing photo and continue saving the recipe URL.
- }else if(photoUrl){
-  await new Promise((resolve,reject)=>{const test=new Image();const timer=setTimeout(()=>reject(Error('写真URLを読み込めません。レシピページではなく画像ファイルのURLを入力してください')),9000);test.onload=()=>{clearTimeout(timer);resolve()};test.onerror=()=>{clearTimeout(timer);reject(Error('写真URLから画像を表示できません。画像をアップロードする方法をお試しください'))};test.src=photoUrl});
-  await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'photo_external',id:savedFoodId,image_url:photoUrl,photo_source:url||photoUrl}});
  }else if(file){if(!file.type.startsWith('image/'))throw Error('画像ファイルを選んでください');const photo=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,640/img.width,480/img.height);const cv=document.createElement('canvas');cv.width=Math.round(img.width*scale);cv.height=Math.round(img.height*scale);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);resolve(cv.toDataURL('image/jpeg',.7))};img.onerror=()=>reject(Error('画像を読み込めません'));img.src=URL.createObjectURL(file)});await notionGateway('foods','photo',null,savedFoodId,photo)}
  await remoteReload();if(addFoodToSelection){if(!setPicked.includes(n))setPicked.push(n);chooseSource='foods';chooseCategory='すべて';chooseSearch='';addFoodToSelection=false}
- $('foodDialog').close();if(returnToMenuEditor){if(!pendingSetItems.includes(n))pendingSetItems.push(n);returnToMenuEditor=false;tab='menu';render();$('setRegisterDialog').showModal();renderEditMenuChoices()}else render();toast(old?'好みをNotionに保存しました ✓':'料理をNotionに登録しました ✓');
- }catch(err){toast('料理を保存できません：'+err.message)}finally{if(btn)btn.disabled=false}
+ $('foodDialog').close();if(returnToMenuEditor){if(!pendingSetItems.includes(n))pendingSetItems.push(n);returnToMenuEditor=false;tab='menu';render();$('setRegisterDialog').showModal();renderEditMenuChoices()}else render();toast('保存しました');
+ }catch(err){toast('保存できませんでした：'+err.message)}finally{if(btn)btn.disabled=false}
 });
 remoteBootstrap();
 </script><script>if ("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(console.warn));</script></body></html>
