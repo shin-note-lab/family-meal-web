@@ -577,17 +577,36 @@ async function selectFreePhoto(i){
 }
 async function applyRecipePhoto(food,button){
  if(!food?.id||!safeRecipeUrl(food.recipe_url||'')){toast('先にレシピURLを登録してください');return false}
- const replace=photoAvailable(food.name);
- if(replace&&!confirm('今の料理写真を、登録したレシピの写真に置き換えますか？'))return false;
  if(button){button.disabled=true;button.textContent='写真を取得中…'}
  try{
   if(!await remoteValid())throw Error('ログインし直してください');
-  await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'recipe_photo',id:food.id,replace}});
-  await remoteReload();toast('保存しました');return true;
- }catch(err){
-  const message=String(err.message||err);
-  toast(message.includes('RECIPE_IMAGE_NOT_FOUND')?'レシピの写真を取得できませんでした':message.includes('PHOTO_ALREADY_EXISTS')?'すでに写真が登録されています':'写真を保存できませんでした');return false;
- }finally{if(button){button.disabled=false;button.textContent='📷 レシピの写真を反映'}}
+  const found=await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'recipe_photo_preview',id:food.id}});
+  const url=found.image_url;
+  if(!url||!/^https:\/\//.test(url))throw Error('RECIPE_IMAGE_NOT_FOUND');
+  const preview=document.createElement('div');preview.className='recipe-photo-preview';
+  preview.style.cssText='position:fixed;inset:0;z-index:99999;background:#0009;display:flex;align-items:center;justify-content:center;padding:16px';
+  preview.innerHTML='<div style="background:white;border-radius:16px;padding:18px;width:min(460px,100%);max-height:90vh;overflow:auto"><h3 style="margin:0 0 12px">レシピの写真を確認</h3><img id="recipePhotoCandidate" alt="レシピの写真" style="display:block;width:100%;max-height:48vh;object-fit:contain;border-radius:10px"><p id="recipePhotoHint" class="small">写真を確認しています…</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" id="recipePhotoUse" disabled>この写真を使う</button><button type="button" class="btn outline" id="recipePhotoCancel">キャンセル</button></div></div>';
+  document.body.append(preview);
+  const img=preview.querySelector('img'),use=preview.querySelector('#recipePhotoUse'),hint=preview.querySelector('#recipePhotoHint');
+  preview.querySelector('#recipePhotoCancel').onclick=()=>preview.remove();
+  img.onload=()=>{use.disabled=false;hint.textContent='この写真を料理に登録できます'};
+  img.onerror=()=>{hint.textContent='写真を表示できませんでした。画像のアップロードをお試しください'};
+  img.src=url;
+  use.onclick=async()=>{
+   const replace=!!food.photo_url||photoAvailable(food.name);
+   if(replace&&!confirm('今の料理写真を、この写真に置き換えますか？'))return;
+   use.disabled=true;use.textContent='保存中…';
+   try{
+    // Save the selected recipe image as a durable uploaded file (single canonical path).
+    await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'recipe_photo',id:food.id,replace}});
+    await remoteReload();const current=data.foods.find(f=>f.id===food.id);
+    if(!current?.photo_url)throw Error('PHOTO_NOT_SAVED');
+    preview.remove();if($('dishDialog').open){$('dishDialog').close();openDish(food.name,0)}toast('保存しました');
+   }catch(err){hint.textContent='写真を保存できませんでした。別の写真をアップロードしてください';use.disabled=false;use.textContent='もう一度試す'}
+  };
+  return true;
+ }catch(err){toast('レシピの写真を取得できませんでした。画像のアップロードをお試しください');return false}
+ finally{if(button){button.disabled=false;button.textContent='🍳 レシピの写真を使う'}}
 }
 function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-recipephoto>🍳 レシピの写真を使う</button><button type="button" data-findfreephoto>🔎 無料写真を探す</button><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
 function openDish(name,index=0){
@@ -690,11 +709,11 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
 document.addEventListener('click',e=>{
  const trigger=e.target.closest('[data-openphotomenu]');
  if(trigger){const menu=document.getElementById('photoActionMenu');if(menu){menu.hidden=!menu.hidden;trigger.setAttribute('aria-expanded',String(!menu.hidden))}return}
- const recipePhotoBtn=e.target.closest('[data-recipephoto]');if(recipePhotoBtn){const menu=document.getElementById('photoActionMenu');if(menu)menu.hidden=true;const food=matches(window.__previewDishName);if(food){void applyRecipePhoto(food,recipePhotoBtn).then(ok=>{if(ok){$('dishDialog').close();openDish(food.name,0)}})}else toast('先に「好み」に料理とレシピを登録してください');return}
+ const recipePhotoBtn=e.target.closest('[data-recipephoto]');if(recipePhotoBtn){const menu=document.getElementById('photoActionMenu');if(menu)menu.hidden=true;const food=matches(window.__previewDishName);if(food){void applyRecipePhoto(food,recipePhotoBtn)}else toast('先に「好み」に料理とレシピを登録してください');return}
   const search=e.target.closest('[data-findfreephoto]');if(search){searchFreePhoto(window.__previewDishName);return}
  const chosen=e.target.closest('[data-commonsselect]');if(chosen){selectFreePhoto(Number(chosen.dataset.commonsselect));return}
  const del=e.target.closest('[data-photoaction="delete"]');
- if(del){const name=window.__previewDishName;if(name){delete data.photos?.[name];save();$('dishDialog').close();openDish(name,0);toast('端末に保存した写真を削除しました。共有写真はそのままです')}return}
+ if(del){const name=window.__previewDishName,food=data.foods.find(f=>f.name===name);if(!food){toast('料理が見つかりません');return}if(!confirm('この料理の写真を削除しますか？'))return;del.disabled=true;void (async()=>{try{await notionGateway('foods','photo_delete',null,food.id);if(data.photos)delete data.photos[name];save();await remoteReload();$('dishDialog').close();openDish(name,0);toast('削除しました')}catch(err){toast('削除できませんでした')}finally{del.disabled=false}})();return}
  if(!e.target.closest('#photoActionMenu')){const menu=document.getElementById('photoActionMenu');if(menu)menu.hidden=true}
 });
 document.addEventListener('change',async e=>{
