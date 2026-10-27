@@ -157,8 +157,14 @@ const REMOTE_BASE='https://eaudjbqjdwvwwrarqufa.supabase.co';
 const REMOTE_KEY='sb_publishable_W_JWOWxdmKRmjxR2aikZQw_RjrveI5J';
 const REMOTE_SLOT='family_meal_auth_session';
 let remoteSession=null,remoteMember=null,remoteUser=null;
-try{remoteSession=JSON.parse(sessionStorage.getItem(REMOTE_SLOT)||'null')}catch{}
-function remotePersist(s){remoteSession=s;if(s)sessionStorage.setItem(REMOTE_SLOT,JSON.stringify(s));else sessionStorage.removeItem(REMOTE_SLOT)}
+try{remoteSession=JSON.parse(localStorage.getItem(REMOTE_SLOT)||sessionStorage.getItem(REMOTE_SLOT)||'null')}catch{}
+function remotePersist(s){
+ remoteSession=s;
+ try{if(s)localStorage.setItem(REMOTE_SLOT,JSON.stringify(s));else localStorage.removeItem(REMOTE_SLOT)}catch(e){console.warn('ログイン情報を保存できませんでした',e)}
+ try{sessionStorage.removeItem(REMOTE_SLOT)}catch{}
+}
+let remoteRefreshPromise=null;
+
 async function remoteApi(path,opts={}){
  const headers={'apikey':REMOTE_KEY,'Content-Type':'application/json'};
  if(opts.token)headers.Authorization='Bearer '+opts.token;
@@ -168,9 +174,21 @@ async function remoteApi(path,opts={}){
  if(!response.ok)throw Error(out?.message||out?.error_description||out?.msg||out?.error||'HTTP '+response.status);
  return out;
 }
-async function remoteValid(){if(!remoteSession)return false;
+async function remoteValid(){
+ if(!remoteSession?.refresh_token)return false;
  if(remoteSession.expires_at>Math.floor(Date.now()/1000)+75)return true;
- try{const next=await remoteApi('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:remoteSession.refresh_token}});remotePersist(next);return true}catch{remotePersist(null);return false}}
+ if(!remoteRefreshPromise){
+  remoteRefreshPromise=(async()=>{
+   try{const next=await remoteApi('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:remoteSession.refresh_token}});remotePersist(next);return true}
+   catch(err){
+    // A temporary network outage must not erase the saved login.
+    console.warn('ログインの更新を再試行します',err);
+    return false;
+   }
+  })().finally(()=>{remoteRefreshPromise=null});
+ }
+ return remoteRefreshPromise;
+}
 async function remoteRequest(path,opts={}){if(!await remoteValid())throw Error('ログイン期限が切れました');return remoteApi('/rest/v1/'+path,{...opts,token:remoteSession.access_token})}
 // Notion is the sole persistence layer for meals, foods, preferences and school lunches.
 // Supabase is used only for authentication and family membership verification.
@@ -557,6 +575,20 @@ async function selectFreePhoto(i){
   await remoteReload();$('dishDialog').close();openDish(name,0);toast('保存しました');
  }catch(err){wrap.innerHTML='<strong>写真を保存できませんでした</strong><p class="small">'+escapeHtml(err.message)+'</p><button class="btn outline" type="button" data-findfreephoto>もう一度探す</button>'}
 }
+async function applyRecipePhoto(food,button){
+ if(!food?.id||!safeRecipeUrl(food.recipe_url||'')){toast('先にレシピURLを登録してください');return false}
+ const replace=photoAvailable(food.name);
+ if(replace&&!confirm('今の料理写真を、登録したレシピの写真に置き換えますか？'))return false;
+ if(button){button.disabled=true;button.textContent='写真を取得中…'}
+ try{
+  if(!await remoteValid())throw Error('ログインし直してください');
+  await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'recipe_photo',id:food.id,replace}});
+  await remoteReload();toast('保存しました');return true;
+ }catch(err){
+  const message=String(err.message||err);
+  toast(message.includes('RECIPE_IMAGE_NOT_FOUND')?'レシピの写真を取得できませんでした':message.includes('PHOTO_ALREADY_EXISTS')?'すでに写真が登録されています':'写真を保存できませんでした');return false;
+ }finally{if(button){button.disabled=false;button.textContent='📷 レシピの写真を反映'}}
+}
 function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-findfreephoto>🔎 無料写真を探す</button><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
 function openDish(name,index=0){
  const recipe=recipeOf(name),role=dishRole(name,index);
@@ -565,10 +597,10 @@ function openDish(name,index=0){
  const chosenRecipe=safeRecipeUrl(matches(name)?.recipe_url||matches(name)?.recipe_link||'');
  $('dishBody').innerHTML=`${dishPhoto(name)}<div class="dish-title-row"><span class="tag">${escapeHtml(role)}</span><h2>${dishIcon(name)} ${escapeHtml(name)}</h2><span class="pill">⏱ ${escapeHtml(recipe.minutes)}分</span></div>
  ${chosenRecipe?`<section class="recipe-inner saved-recipe"><h3>⭐ わが家の定番レシピ</h3><p>前回選んだレシピを保存しています。次も同じ作り方を使えます。</p><a class="recipe-action recipe-action-primary" href="${attr(chosenRecipe)}" target="_blank" rel="noopener noreferrer">📖 保存したレシピを開く</a><p class="small">材料・手順は選んだレシピサイトで確認してください。別の作り方は混ぜません。</p></section>`:`<section class="recipe-inner"><h3>📝 この料理の作り方（概要）</h3><p class="small">家庭向けの調理メモです。外部サイトのレシピ本文を自動取得したものではありません。</p><h3>🥕 材料の例</h3>${recipe.ingredients?.length?`<ul>${recipe.ingredients.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`:'<p class="small">材料は未登録です。</p>'}<h3>👩‍🍳 作り方</h3><ol>${recipe.steps.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol></section>`}
- <div id="photoCandidates" class="photo-candidates" hidden></div>${referenceHtml(name,recipe)}
+ ${chosenRecipe?`<div class="group"><button type="button" class="btn outline" data-recipephoto>📷 レシピの写真を反映</button></div>`:``}<div id="photoCandidates" class="photo-candidates" hidden></div>${referenceHtml(name,recipe)}
  <div class="group"><button class="btn outline" data-backmenu>← 献立メニューに戻る</button><button class="btn ghost" data-close="dishDialog">閉じる</button></div>`;
  $('dishDialog').showModal();
- if(!photoAvailable(name))searchFreePhoto(name);
+ if(!photoAvailable(name)&&!chosenRecipe)searchFreePhoto(name);
 }
 function hideDetail(){const el=$('detailDialog');el.hidden=true;document.querySelector('main.wrap').classList.remove('detail-mode');window.scrollTo(0,0)}
 function normalizeDishList(value){
@@ -658,7 +690,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
 document.addEventListener('click',e=>{
  const trigger=e.target.closest('[data-openphotomenu]');
  if(trigger){const menu=document.getElementById('photoActionMenu');if(menu){menu.hidden=!menu.hidden;trigger.setAttribute('aria-expanded',String(!menu.hidden))}return}
- const search=e.target.closest('[data-findfreephoto]');if(search){searchFreePhoto(window.__previewDishName);return}
+ const recipePhotoBtn=e.target.closest('[data-recipephoto]');if(recipePhotoBtn){const food=matches(window.__previewDishName);if(food){void applyRecipePhoto(food,recipePhotoBtn).then(ok=>{if(ok){$('dishDialog').close();openDish(food.name,0)}})}return}
+  const search=e.target.closest('[data-findfreephoto]');if(search){searchFreePhoto(window.__previewDishName);return}
  const chosen=e.target.closest('[data-commonsselect]');if(chosen){selectFreePhoto(Number(chosen.dataset.commonsselect));return}
  const del=e.target.closest('[data-photoaction="delete"]');
  if(del){const name=window.__previewDishName;if(name){delete data.photos?.[name];save();$('dishDialog').close();openDish(name,0);toast('端末に保存した写真を削除しました。共有写真はそのままです')}return}
@@ -722,7 +755,13 @@ $('foodForm').addEventListener('submit',async e=>{
  if(file&&old&&photoAvailable(old.name)&&!confirm('登録済みの料理写真があります。選んだレシピの写真で置き換えますか？')){
   // Keep the existing photo and continue saving the recipe URL.
  }else if(file){if(!file.type.startsWith('image/'))throw Error('画像ファイルを選んでください');const photo=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,640/img.width,480/img.height);const cv=document.createElement('canvas');cv.width=Math.round(img.width*scale);cv.height=Math.round(img.height*scale);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);resolve(cv.toDataURL('image/jpeg',.7))};img.onerror=()=>reject(Error('画像を読み込めません'));img.src=URL.createObjectURL(file)});await notionGateway('foods','photo',null,savedFoodId,photo)}
- await remoteReload();if(addFoodToSelection){if(!setPicked.includes(n))setPicked.push(n);chooseSource='foods';chooseCategory='すべて';chooseSearch='';addFoodToSelection=false}
+ await remoteReload();
+ // A newly saved favorite recipe supplies its own picture if none is registered.
+ if(url&&(!old||url!==(old.recipe_url||''))&&!file){
+  const saved=data.foods.find(x=>x.id===savedFoodId);
+  if(saved&&!photoAvailable(saved.name))await applyRecipePhoto(saved,null);
+ }
+ if(addFoodToSelection){if(!setPicked.includes(n))setPicked.push(n);chooseSource='foods';chooseCategory='すべて';chooseSearch='';addFoodToSelection=false}
  $('foodDialog').close();if(returnToMenuEditor){if(!pendingSetItems.includes(n))pendingSetItems.push(n);returnToMenuEditor=false;tab='menu';render();$('setRegisterDialog').showModal();renderEditMenuChoices()}else render();toast('保存しました');
  }catch(err){toast('保存できませんでした：'+err.message)}finally{if(btn)btn.disabled=false}
 });
