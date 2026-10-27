@@ -79,7 +79,7 @@
 .photo-candidates-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
 .photo-candidate{display:block;min-width:0;background:#fff;border:1px solid #dce6df;border-radius:10px;padding:5px;text-align:left;color:#245344;cursor:pointer}
 .photo-candidate img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:7px}
-.photo-candidate span{display:block;font-size:11px;overflow-wrap:anywhere}
+.photo-candidate span{display:block;font-size:12px;overflow-wrap:anywhere}.photo-candidate-card{min-width:0;border:1px solid #dce6df;border-radius:11px;background:#fff;overflow:hidden}.photo-candidate-card .photo-candidate{width:100%;border:0;border-radius:0;padding:6px}.photo-candidate-label{font-weight:700;color:#245344;margin-top:5px}.photo-candidate-sub{color:#52776b}.photo-license{padding:6px 8px 9px;font-size:11px;color:#53665f;border-top:1px solid #e5ebe8;overflow-wrap:anywhere}.photo-license summary{cursor:pointer;color:#336e5e}.photo-license a{display:block;margin-top:5px}.photo-candidate:focus-visible{outline:3px solid #257d69;outline-offset:-3px}.photo-candidate:focus-visible{outline:3px solid #257d69;outline-offset:2px}.photo-candidate:active{background:#d6f3e8}.photo-candidate img{pointer-events:none}
 .photo-candidates .small{line-height:1.6}
 </style><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./apple-touch-icon.png"><style>
 .weekly-tabs{display:flex;gap:8px;align-items:stretch;margin:14px 0 18px;width:100%}
@@ -514,25 +514,23 @@ async function searchFreePhoto(name){
   const entries=Object.values(result.query?.pages||{}).map(p=>({title:p.title,info:p.imageinfo?.[0]})).filter(p=>p.info?.thumburl&&/\.(jpe?g|png|webp)$/i.test(p.title));
   window.__commonsCandidates=entries;
   if(!entries.length){wrap.innerHTML='<strong>画像候補が見つかりませんでした。</strong><p class="small">別の料理名で探すか、手元の写真を登録してください。</p>';return}
-  wrap.innerHTML='<strong>🖼️ 写真候補を選ぶ</strong><p class="small">Wikimedia Commonsから取得。写真を確認して選択するとNotionへ保存します。ライセンス・出典は画像ページで確認できます。</p><div class="photo-candidates-grid">'+entries.slice(0,9).map((p,i)=>`<button type="button" class="photo-candidate" data-commonsselect="${i}"><img loading="lazy" src="${attr(p.info.thumburl)}" alt="${attr(p.title)}"><span>${escapeHtml(p.title.replace(/^File:/,''))}</span></button>`).join('')+'</div><p class="small">画像ごとに利用条件が異なります。出典・ライセンスを確認してから選択してください。</p>';
+  wrap.innerHTML='<strong>🖼️ 写真候補を選ぶ</strong><p class="small">Wikimedia Commonsから取得。写真を確認して選択するとNotionへ保存します。ライセンス・出典は画像ページで確認できます。</p><div class="photo-candidates-grid">'+entries.slice(0,9).map((p,i)=>`<div class="photo-candidate-card"><button type="button" class="photo-candidate" data-commonsselect="${i}"><img loading="lazy" src="${attr(p.info.thumburl)}" alt="${attr(name)}の写真候補 ${i+1}"><span class="photo-candidate-label">写真候補 ${i+1}</span><span class="photo-candidate-sub">この写真を選ぶ</span></button><details class="photo-license"><summary>出典・利用条件</summary><div>利用条件：${escapeHtml(p.info.extmetadata?.LicenseShortName?.value||"未確認")}</div><a href="${attr(p.info.descriptionurl||"https://commons.wikimedia.org/")}" target="_blank" rel="noopener noreferrer">画像の出典ページを開く ↗</a></details></div>`).join('')+'</div><p class="small">画像ごとに利用条件が異なります。出典・ライセンスを確認してから選択してください。</p>';
  }catch(err){wrap.innerHTML='<strong>画像を取得できませんでした。</strong><p class="small">'+escapeHtml(err.message)+'。ネットワーク設定によっては検索できない場合があります。</p>'}
 }
 async function selectFreePhoto(i){
- const item=window.__commonsCandidates?.[i],name=window.__previewDishName;if(!item||!name)return;
- const food=data.foods.find(f=>f.name===name);if(!food){toast('写真の保存には、先に「好み」に料理を登録してください');return}
- const metadata=item.info.extmetadata||{};
- const license=metadata.LicenseShortName?.value||'';
- if(!confirm('この写真を「'+name+'」に登録しますか？\n画像：'+item.title+'\nライセンス：'+license+'\n出典・著作者の表示条件を画像ページで確認してください。'))return;
- const wrap=document.getElementById('photoCandidates');wrap.innerHTML='<strong>Notionへ写真を保存中…</strong>';
+ const item=window.__commonsCandidates?.[i],name=window.__previewDishName;
+ if(!item||!name){toast('候補を取得し直してください');return}
+ const food=data.foods.find(f=>f.name===name);
+ if(!food){toast('写真の保存には、先に「好み」に料理を登録してください');return}
+ const license=item.info.extmetadata?.LicenseShortName?.value||'ライセンス未確認';
+ const source=item.info.descriptionurl||'https://commons.wikimedia.org/wiki/'+encodeURIComponent(item.title.replaceAll(' ','_'));
+ if(!confirm('この写真を「'+name+'」に登録しますか？\n利用条件：'+license+'\n詳細は候補の「出典・利用条件」で確認できます。'))return;
+ const wrap=document.getElementById('photoCandidates');wrap.innerHTML='<strong>写真をNotionに保存中…</strong>';
  try{
-  const response=await fetch(item.info.thumburl);if(!response.ok)throw Error('写真のダウンロードに失敗しました');
-  const blob=await response.blob();const bitmap=await createImageBitmap(blob);
-  const scale=Math.min(1,640/bitmap.width,480/bitmap.height);
-  const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(bitmap.width*scale));cv.height=Math.max(1,Math.round(bitmap.height*scale));cv.getContext('2d').drawImage(bitmap,0,0,cv.width,cv.height);
-  await notionGateway('foods','photo',null,food.id,cv.toDataURL('image/jpeg',.7));
-  // Record original Commons file page in Notion as photo source.
-  const source=item.info.descriptionurl||'https://commons.wikimedia.org/wiki/'+encodeURIComponent(item.title.replaceAll(' ','_'));
-  await remoteUpdate('foods',food.id,{...food,photo_source:source});
+  const url=item.info.url||item.info.thumburl;
+  if(!url)throw Error('画像URLが取得できません');
+  if(!await remoteValid())throw Error('ログイン期限が切れました');
+  await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'photo_external',id:food.id,image_url:url,photo_source:source}});
   await remoteReload();$('dishDialog').close();openDish(name,0);toast('写真をNotionに登録しました ✓');
  }catch(err){wrap.innerHTML='<strong>写真を保存できませんでした</strong><p class="small">'+escapeHtml(err.message)+'</p><button class="btn outline" type="button" data-findfreephoto>もう一度探す</button>'}
 }
