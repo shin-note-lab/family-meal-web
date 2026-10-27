@@ -70,23 +70,23 @@
 <section class="detail-page" id="detailDialog" hidden><div class="detail-page-header"><button type="button" class="btn outline" data-backdetail>← 戻る</button><h2 id="detailLabel">献立メニュー</h2></div><div class="sheet-inner" id="detailBody"></div></section>
 <dialog class="sheet dish-sheet" id="dishDialog" aria-label="料理のレシピ詳細"><div class="sheet-header"><h2 id="dishLabel">料理のレシピ</h2><button class="close" data-close="dishDialog" aria-label="閉じる">×</button></div><div class="sheet-inner" id="dishBody"></div></dialog>
 <dialog class="sheet" id="setRegisterDialog" aria-label="献立セットの登録"><div class="sheet-header"><h2>🍽 献立を登録</h2><button type="button" class="close" data-close="setRegisterDialog" aria-label="閉じる">×</button></div><div class="sheet-inner"><form id="setRegisterForm"><div class="card" style="background:#f3f9f5;padding:13px;margin-bottom:16px"><div class="small">選んだ料理</div><strong id="setRegisterSummary"></strong></div><div class="pair"><div class="field"><label for="setRegisterDate">日付</label><input type="date" id="setRegisterDate" required></div><div class="field"><label for="setRegisterType">食事</label><select id="setRegisterType" required><option value="朝">🌞 朝食</option><option value="昼">🍚 昼食</option><option value="夕">🌙 夕食</option></select></div></div><p class="small">ここでの登録は献立の予定です。実際に食べた記録は別に保存できます。</p><div class="lastrow"><button type="button" class="btn ghost" data-close="setRegisterDialog">キャンセル</button><button type="submit" class="btn">この献立を登録</button></div></form></div></dialog>
-<dialog class="sheet" id="recordDialog"><div class="sheet-header"><h2 id="recordLabel">食べたものを記録</h2><button class="close" data-close="recordDialog" aria-label="閉じる">×</button></div><div class="sheet-inner"><form id="recordForm">
+<dialog class="sheet" id="recordDialog"><div class="sheet-header"><h2 id="recordLabel">食べたものを記録</h2><button class="close" data-close="recordDialog" aria-label="閉じる">×</button></div><div class="sheet-inner"><form id="recordForm" novalidate>
 <div class="pair"><div class="field"><label for="recDate">日付</label><input type="date" id="recDate" required></div><div class="field"><label for="recType">食事</label><select id="recType"><option>朝</option><option>昼</option><option>夕</option><option>弁当</option></select></div></div>
 <div class="field"><label for="recFoodSearch">💚 好みに登録済みの料理から選ぶ</label>
 <input id="recFoodSearch" type="search" placeholder="料理名を検索（複数選択できます）" autocomplete="off">
 <div id="recFoodTabs" class="filterchips" style="display:flex;gap:5px;overflow-x:auto;padding:5px 0;white-space:nowrap"></div>
 <div id="recFoodChoices" class="filterchips" style="margin-top:9px;max-height:190px;overflow:auto"></div>
-<div class="small">料理をタップすると下の入力欄に追加・解除できます。直接入力もできます。</div></div>
+<div class="small">料理をタップして選択・解除します。登録されていない料理は下の「新しい料理を登録」から追加してください。</div></div>
 <details id="recNewFood" class="card" style="margin-bottom:16px;padding:13px">
 <summary style="cursor:pointer;font-weight:700">＋ 新しい料理を登録（好みも一緒に）</summary>
 <div class="field" style="margin-top:12px"><label for="recNewName">料理名</label><input id="recNewName" maxlength="100" placeholder="例：鮭の塩焼き"></div>
 <div class="field"><label for="recNewCategory">分類</label><select id="recNewCategory"><option>主食・メイン</option><option>主菜・おかず</option><option>副菜</option><option>汁物</option><option>デザート</option><option>お菓子</option></select></div>
 <div class="pair"><div class="field"><label for="recNewRyo">👦 りょうの好み</label><select id="recNewRyo"></select></div><div class="field"><label for="recNewAoi">👧 あおいの好み</label><select id="recNewAoi"></select></div></div>
 <div class="field"><label for="recNewNote">食べ方・好みのメモ（任意）</label><textarea id="recNewNote" maxlength="300"></textarea></div>
-<button type="button" class="btn outline" id="recAddNewFood">＋ 料理を入力欄へ追加</button>
-<div class="small">実食記録を保存すると、新しい料理と家族の好みも「好み」に登録されます。</div>
+<button type="button" class="btn outline" id="recAddNewFood">＋ 好みに登録して選択</button>
+<div class="small">ここで追加した料理は選択済みになり、実食記録の保存時に「好み」にも登録されます。</div>
 </details>
-<div class="field"><label for="recMenu">実際に食べたもの（家族共通）</label><textarea id="recMenu" placeholder="例：ミートソースパスタ、和風サラダ、バナナヨーグルト" required maxlength="400"></textarea><div class="small">提案と違っていても、食べた料理を自由に記録できます。</div></div>
+<div class="field"><label>選択した料理（家族共通）</label><div id="recSelectedFoods" class="filterchips" aria-live="polite" style="display:flex;flex-wrap:wrap;gap:7px;margin:8px 0"></div><input type="hidden" id="recMenu"><div class="small">選択した料理をもう一度タップすると解除できます。料理名の手入力は不要です。</div></div>
 <div class="field"><label for="recPlace">どこで食べた？</label><select id="recPlace"><option>自宅</option><option>外食</option><option>祖父母の家</option><option>テイクアウト</option><option>お弁当</option><option>その他</option></select></div>
 <div class="field"><label for="recMemo">ひとことメモ（任意）</label><textarea id="recMemo" maxlength="300" placeholder="例：よく食べた。次は少なめに／買い出しなしで作れた"></textarea></div>
 <input type="hidden" id="recId"><div class="lastrow"><button class="btn ghost" type="button" data-close="recordDialog">閉じる</button><button class="btn" type="submit">🍽 実際の献立を記録</button></div>
@@ -246,12 +246,12 @@ function setCards(){
  <div class="filterchips" style="margin:9px 0">${x.items.map(item=>`<button class="${setPicked.includes(item)?'active':''}" data-toggle-dish="${attr(item)}">${setPicked.includes(item)?'✓ ': '＋ '}${escapeHtml(item)}</button>`).join('')}</div>
  <div class="group"><button class="btn outline" style="padding:6px 11px;font-size:12px;min-height:30px" data-chooseset="${attr(String(x.id))}">セット登録</button></div></div>`).join('')}</div>`;
 }
-let pendingSetItems=[];
-function registerSelected(items,defaultType='夕'){
+let pendingSetItems=[];let pendingEditMenuId=null;
+function registerSelected(items,defaultType='夕',existing=null){
  if(!items.length){toast('料理を1品以上選んでください');return}
- pendingSetItems=[...items];
+ pendingSetItems=[...items];pendingEditMenuId=existing?.id||null;
  $('setRegisterSummary').textContent=items.join('・');
- $('setRegisterDate').value=today();
+ $('setRegisterDate').value=existing?.date||today();
  $('setRegisterType').value=['朝','昼','夕'].includes(defaultType)?defaultType:'夕';
  $('setRegisterDialog').showModal();
 }
@@ -259,13 +259,14 @@ function chooseSet(id){const x=allMealSets().find(a=>String(a.id)===String(id));
 $('setRegisterForm').addEventListener('submit',async e=>{
  e.preventDefault();const d=$('setRegisterDate').value,type=$('setRegisterType').value;
  if(!d||!['朝','昼','夕'].includes(type)||!pendingSetItems.length)return;
- const old=data.menus.find(m=>m.date===d&&m.type===type);
+ const old=data.menus.find(m=>m.date===d&&m.type===type&&m.id!==pendingEditMenuId);
  if(old&&!confirm('この日の登録済み献立を変更しますか？'))return;
+ const selectedNames=recNames();const knownNames=new Set([...data.foods.map(f=>f.name),...pendingRecFoods.map(f=>f.name)]);const oldRecord=data.records.find(x=>x.id===oldId);for(const n of normalizeDishList(oldRecord?.menu||''))knownNames.add(n);if(selectedNames.some(n=>!knownNames.has(n))){alert('未登録の料理があります。新しい料理は「好み」に登録してから選択してください。');return}
  const btn=e.submitter;if(btn)btn.disabled=true;
  try{const payload={meal_date:d,meal_type:type,description:pendingSetItems.join('、'),state:'候補',notes:''};
- if(old)await remoteUpdate('menus',old.id,payload);else await remoteInsert('menus',payload);
- await remoteReload();$('setRegisterDialog').close();setPicked=[];tab='menu';render();window.scrollTo(0,0);toast('献立を家族共有に登録しました ✓')
- }catch(err){toast('登録できません：'+err.message)}finally{if(btn)btn.disabled=false}
+ if(pendingEditMenuId)await remoteUpdate('menus',pendingEditMenuId,payload);else if(old)await remoteUpdate('menus',old.id,payload);else await remoteInsert('menus',payload);
+ await remoteReload();$('setRegisterDialog').close();pendingEditMenuId=null;setPicked=[];tab='menu';render();window.scrollTo(0,0);toast('献立を家族共有に登録しました ✓')
+ }catch(err){alert('献立を登録できませんでした。\n'+err.message)}finally{if(btn)btn.disabled=false}
 });
 function nextSuggest(){const recent=recentMeals().slice(0,12).flatMap(r=>r.menu.split(/[、，,\/]/).map(x=>x.trim()));const seen=new Set(recent);
  const candidates=[['ミートソースパスタ','和風サラダ','バナナヨーグルト'],['ハヤシライス','ゆでブロッコリー','りんご'],['たまごサンド','コーンスープ（牛乳入り）','バナナ'],['鶏の照り焼き','ご飯','かぼちゃの煮物']];
@@ -325,7 +326,7 @@ function menuCards(mode="current",selectedMonth=null){
   const hits=meals.filter(m=>m.type===type);
   const icon={朝:'🌞',昼:'🍚',夕:'🌙',弁当:'🍱'}[type]||'🍴';
   if(!hits.length)return `<div class="time-slot empty-meal"><div class="slot-title">${icon} ${type==='弁当'?'お弁当の日':type+'ごはん'} <span class="small">未登録</span></div><p class="sub">まだ献立を選んでいません。おすすめセットから選ぶか、食べたものを記録できます。</p><button class="btn outline" data-addrecord="${type}">＋ 食べたものを記録</button></div>`;
-  return `<div class="time-slot"><div class="slot-title">${icon} ${type==='弁当'?'お弁当の日':type+'ごはん'} <span class="tag">家庭の献立・${escapeHtml(hits[0].status)}</span></div>${hits.map(m=>`<button class="mealrow" data-detail="${attr(m.id)}">${coverFor(mainOf(m))}<span><strong>${escapeHtml(m.items.join('・'))}</strong><span class="small">料理を選んで写真・レシピを確認</span></span><span class="arrow">›</span></button>`).join('')}</div>`;
+  return `<div class="time-slot"><div class="slot-title">${icon} ${type==='弁当'?'お弁当の日':type+'ごはん'} <span class="tag">家庭の献立・${escapeHtml(hits[0].status)}</span></div>${hits.map(m=>`<button class="mealrow" data-detail="${attr(m.id)}">${coverFor(mainOf(m))}<span><strong>${escapeHtml(m.items.join('・'))}</strong><span class="small">料理を選んで写真・レシピを確認</span></span><span class="arrow">›</span></button><button class="btn outline" style="margin:7px 0 0" data-editmenu="${attr(m.id)}">✏️ 献立を編集</button>`).join('')}</div>`;
  }
  function schoolTag(status){const label=status==='給食あり'?'給食':status;return `<span class="school-status-tag${label==='給食'?'':' off'}">${escapeHtml(label)}</span>`;}
  function schoolSlot(s){
@@ -335,7 +336,7 @@ function menuCards(mode="current",selectedMonth=null){
      <div class="school-lunch"><div class="school-label">👧 あおい ${schoolTag(s.aoiStatus)}</div><div class="school-text">${escapeHtml(s.aoi)}</div></div></div>
      <div class="small" style="margin-top:8px">※給食の献立表に基づく予定。変更・欠席・実食は未確認</div></div>`;
  }
- function actualBlock(records){return records.length?`<div class="time-slot actual-slot"><div class="slot-title">✅ 実際に食べた記録 <span class="tag">実食履歴</span></div>${records.map(r=>`<div class="actual-line"><strong>${escapeHtml(r.type)}｜${escapeHtml(r.place)}</strong><span>${escapeHtml(r.menu)}</span>${mode==='past'?`<span class="group"><button class="btn outline" data-editrecord="${attr(r.id)}">修正</button><button class="btn ghost" data-delrecord="${attr(r.id)}">削除</button></span>`:''}</div>`).join('')}</div>`:''}
+ function actualBlock(records){return records.length?`<div class="time-slot actual-slot"><div class="slot-title">✅ 実際に食べた記録 <span class="tag">実食履歴</span></div>${records.map(r=>`<div class="actual-line"><strong>${escapeHtml(r.type)}｜${escapeHtml(r.place)}</strong><span>${escapeHtml(r.menu)}</span><span class="group"><button class="btn outline" data-editrecord="${attr(r.id)}">修正</button><button class="btn ghost" data-delrecord="${attr(r.id)}">削除</button></span></div>`).join('')}</div>`:''}
  return `<div class="days">${dates.map(d=>{
    const v=groupByDate.get(d),ms=v.menus;
    const lunchAtHome=ms.some(m=>m.type==='昼');
@@ -426,6 +427,8 @@ function renderRecChoices(){
  $('recFoodTabs').innerHTML=recCategories.map(cat=>`<button type="button" data-reccat="${attr(cat)}" class="btn ${recActiveCategory===cat?'':'outline'}" style="flex-shrink:0;padding:7px 11px;font-size:12px">${escapeHtml(cat)}</button>`).join('');
  const arr=data.foods.filter(f=>(recActiveCategory==='すべて'||(f.categories||[]).includes(recActiveCategory))&&f.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
  $('recFoodChoices').innerHTML=arr.length?arr.map(f=>`<button type="button" class="btn ${selected.includes(f.name)?'':'outline'}" data-pickfood="${attr(f.name)}" style="padding:7px 10px;margin:2px;font-size:13px">${selected.includes(f.name)?'✓ ':''}${escapeHtml(f.name)}</button>`).join(''):'<span class="small">この区分に該当する料理はありません。下の「新しい料理を登録」から追加できます。</span>';
+ const selectedEl=$('recSelectedFoods');if(selectedEl)selectedEl.innerHTML=selected.length?selected.map(name=>`<button type="button" class="btn outline" data-removerecfood="${attr(name)}" style="padding:7px 11px">✓ ${escapeHtml(name)} ×</button>`).join(''):'<span class="small">まだ料理が選ばれていません。上の一覧から選んでください。</span>';
+ const pendingNames=pendingRecFoods.map(f=>f.name);if(pendingNames.length){$('recFoodChoices').insertAdjacentHTML('afterbegin',pendingNames.map(name=>`<button type="button" class="btn" data-pickfood="${attr(name)}" style="padding:7px 10px;margin:2px;font-size:13px">${selected.includes(name)?'✓ ':''}${escapeHtml(name)}（新規）</button>`).join(''))}
 }
 function prepareRecNewFood(){
  pendingRecFoods=[];$('recNewName').value='';$('recNewNote').value='';$('recNewCategory').value='主食・メイン';
@@ -437,7 +440,7 @@ function openFood(food=null){$('foodForm').reset();$('foodId').value=food?.id||'
 for(const id of ['foodRyo','foodAoi']) $(id).innerHTML=allowed.map(x=>`<option>${x}</option>`).join('');
 // All editing actions in this preview are local-only, never network.
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;monthChoice=null;render();scrollTo({top:0,behavior:'smooth'})}));
-document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[data-backdetail],[data-close],[data-fromdetail],[data-addrecord],[data-recset],[data-chooseset],[data-setfilter],[data-choosesource],[data-newchoosefood],[data-choosecat],[data-openlibrary],[data-backlibrary],[data-toggle-dish],[data-savepicked],[data-clearpicked],[data-editrecord],[data-delrecord],[data-cat],[data-newfood],[data-editfood],[data-dishindex],[data-backmenu],[data-gopast],[data-gomenu],[data-month],#resetPreview');if(!t)return;
+document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[data-backdetail],[data-close],[data-fromdetail],[data-addrecord],[data-recset],[data-chooseset],[data-setfilter],[data-choosesource],[data-newchoosefood],[data-choosecat],[data-openlibrary],[data-backlibrary],[data-toggle-dish],[data-savepicked],[data-clearpicked],[data-editrecord],[data-editmenu],[data-delrecord],[data-cat],[data-newfood],[data-editfood],[data-dishindex],[data-backmenu],[data-gopast],[data-gomenu],[data-month],#resetPreview');if(!t)return;
  if(t.dataset.month){monthChoice=t.dataset.month==='all'?null:t.dataset.month;render();return}
  if(t.hasAttribute('data-gopast')){tab='past';monthChoice=null;render();window.scrollTo(0,0);return}
  if(t.hasAttribute('data-gomenu')){tab='menu';monthChoice=null;render();window.scrollTo(0,0);return}
@@ -459,6 +462,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
  if(t.dataset.setfilter){setMealFilter=t.dataset.setfilter;render();return}
  if(t.dataset.chooseset!==undefined){chooseSet(t.dataset.chooseset);return}
  if(t.dataset.recset){detail({items:t.dataset.recset.split('、'),date:null,type:null})}
+ if(t.dataset.editmenu){const m=data.menus.find(x=>x.id===t.dataset.editmenu);if(m)registerSelected(m.items,m.type,m);return}
  if(t.dataset.editrecord){const r=data.records.find(x=>x.id===t.dataset.editrecord);if(r)openRecord({record:r})}
  if(t.dataset.delrecord){if(confirm('この実食履歴を家族共有データから削除しますか？')){remoteDelete('menus',t.dataset.delrecord).then(()=>remoteReload()).then(()=>{render();toast('実食履歴を削除しました')}).catch(err=>toast('削除できません：'+err.message))}}
  if(t.dataset.cat){cat=t.dataset.cat;render()}
@@ -490,7 +494,7 @@ document.addEventListener('change',async e=>{
 });
 $('recFoodSearch').addEventListener('input',renderRecChoices);
 $('recFoodTabs').addEventListener('click',e=>{const b=e.target.closest('[data-reccat]');if(!b)return;recActiveCategory=b.dataset.reccat;renderRecChoices()});
-$('recMenu').addEventListener('input',renderRecChoices);
+$('recSelectedFoods').addEventListener('click',e=>{const b=e.target.closest('[data-removerecfood]');if(!b)return;const name=b.dataset.removerecfood;$('recMenu').value=recNames().filter(n=>n!==name).join('、');renderRecChoices()});
 $('recFoodChoices').addEventListener('click',e=>{
  const btn=e.target.closest('[data-pickfood]');if(!btn)return;
  const name=btn.dataset.pickfood,a=recNames();$('recMenu').value=(a.includes(name)?a.filter(x=>x!==name):[...a,name]).join('、');renderRecChoices();
@@ -503,14 +507,14 @@ $('recAddNewFood').addEventListener('click',()=>{
 });
 $('recordForm').addEventListener('submit',async e=>{
  e.preventDefault();const oldId=$('recId').value;const r={date:$('recDate').value,type:$('recType').value,menu:$('recMenu').value.trim(),place:$('recPlace').value,memo:$('recMemo').value.trim()};
- if(!r.date||!r.menu){toast('日付と食べたものを入力してください');return}
+ if(!r.date||!r.menu){$('recFoodSearch').focus();alert('実際に食べた料理を「好み」から選択してください。登録されていない料理は「新しい料理を登録」から追加できます。');return}
  const btn=e.submitter;if(btn)btn.disabled=true;
  try{
  for(const item of pendingRecFoods){if(!recNames().includes(item.name)||data.foods.some(f=>f.name===item.name))continue;await remoteInsert('foods',{name:item.name,categories:item.categories,ryo_preference:item.ryo_preference,aoi_preference:item.aoi_preference,ryo_note:item.note||'',aoi_note:item.note||''})}
  const payload={meal_date:r.date,meal_type:r.type,description:r.menu,state:'実食',notes:'[MEAL_RECORD_V1]'+JSON.stringify({place:r.place,memo:r.memo})};
  if(oldId)await remoteUpdate('menus',oldId,payload);else await remoteInsert('menus',payload);
  await remoteReload();$('recordDialog').close();render();toast('実食記録を家族共有に保存しました ✓');
- }catch(err){toast('実食記録を保存できません：'+err.message)}finally{if(btn)btn.disabled=false}
+ }catch(err){alert('実食記録を保存できませんでした。\n'+err.message)}finally{if(btn)btn.disabled=false}
 });
 $('foodForm').addEventListener('submit',async e=>{
  e.preventDefault();const oldId=$('foodId').value;const old=data.foods.find(x=>x.id===oldId)||null;
