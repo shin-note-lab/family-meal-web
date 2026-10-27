@@ -68,7 +68,20 @@
 #editMenuChoices button.active,#recFoodChoices button.active{background:#dcebfa!important;color:#194c78!important;border-color:#86b6dd!important}
 #editMenuChoices,#recFoodChoices{display:flex;flex-wrap:wrap;gap:7px}
 #recSelectedFoods button{background:#dcebfa!important;border-color:#a7c7e7!important;color:#245b87!important}
-.recipe-action-primary,.recipe-action-secondary{display:inline-flex;align-items:center;justify-content:center;text-decoration:none!important;border-radius:11px;padding:12px 17px;margin:3px 0;min-height:44px}.reference-box .btn{font-size:15px}.reference-box p{margin:10px 0}.recipe-inner{display:block!important;visibility:visible!important}</style><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./apple-touch-icon.png"><style>
+.recipe-action-primary,.recipe-action-secondary{display:inline-flex;align-items:center;justify-content:center;text-decoration:none!important;border-radius:11px;padding:12px 17px;margin:3px 0;min-height:44px}.reference-box .btn{font-size:15px}.reference-box p{margin:10px 0}.recipe-inner{display:block!important;visibility:visible!important}
+/* Keep the recipe summary entirely below the photo, including step 1. */
+.dish-photo.image-stage{height:clamp(190px,43vw,360px);overflow:visible;display:block;position:relative;margin-bottom:20px;flex-shrink:0}
+.dish-photo.image-stage>img,.dish-photo.image-stage>.food-cover{width:100%;height:100%;object-fit:cover;display:block;overflow:hidden}
+.dish-title-row,.recipe-inner,.reference-box{position:relative;clear:both}
+.recipe-inner{overflow:visible;min-height:0;contain:none}
+.recipe-inner ol{list-style-type:decimal;list-style-position:outside;padding-left:2em;margin-top:12px}
+.photo-candidates{border:1px solid #d6e7df;background:#f6faf7;border-radius:14px;padding:13px;margin:12px 0 20px}
+.photo-candidates-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
+.photo-candidate{display:block;min-width:0;background:#fff;border:1px solid #dce6df;border-radius:10px;padding:5px;text-align:left;color:#245344;cursor:pointer}
+.photo-candidate img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:7px}
+.photo-candidate span{display:block;font-size:11px;overflow-wrap:anywhere}
+.photo-candidates .small{line-height:1.6}
+</style><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./apple-touch-icon.png"><style>
 .weekly-tabs{display:flex;gap:8px;align-items:stretch;margin:14px 0 18px;width:100%}
 .week-tab-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:1;min-width:0}
 .week-tab{border:1px solid #d8e6dc;border-radius:14px;background:#fff;color:#28594d;cursor:pointer;padding:11px 5px;font-weight:750;min-width:0;line-height:1.4}
@@ -486,16 +499,54 @@ function referenceHtml(dish,recipe){
  ${match?.id?`<button type="button" class="btn outline" data-editfood="${attr(match.id)}">${saved?'✏️ レシピを変更・登録':'＋ レシピを登録'}</button>`:'<p class="small">レシピを保存するには、まずこの料理を「好み」に登録してください。</p>'}
  <div class="small">検索して気に入ったレシピを選び、URLを登録すると次回からすぐ開けます。</div></div>`;
 }
-function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
+const PHOTO_COMMONS_API='https://commons.wikimedia.org/w/api.php';
+function commonsSearchTerm(name){
+ const known={'みかん':'mandarin orange fruit','コーンスープ':'corn soup','白飯':'steamed white rice','ご飯':'steamed rice','焼き餃子':'gyoza dumplings','餃子':'gyoza dumplings','ポテトサラダ':'Japanese potato salad','わかめスープ':'wakame soup','たまごサンド':'egg sandwich'};
+ return known[name]||name;
+}
+async function searchFreePhoto(name){
+ const wrap=document.getElementById('photoCandidates');if(!wrap)return;
+ wrap.hidden=false;wrap.innerHTML='<strong>🖼️ 無料画像の候補を検索中…</strong>';
+ const url=new URL(PHOTO_COMMONS_API);url.search=new URLSearchParams({action:'query',generator:'search',gsrsearch:'filetype:bitmap '+commonsSearchTerm(name),gsrnamespace:'6',gsrlimit:'12',prop:'imageinfo',iiprop:'url|extmetadata',iiurlwidth:'460',format:'json',origin:'*'}).toString();
+ try{
+  const response=await fetch(url);if(!response.ok)throw Error('画像検索に失敗しました');
+  const result=await response.json();
+  const entries=Object.values(result.query?.pages||{}).map(p=>({title:p.title,info:p.imageinfo?.[0]})).filter(p=>p.info?.thumburl&&/\.(jpe?g|png|webp)$/i.test(p.title));
+  window.__commonsCandidates=entries;
+  if(!entries.length){wrap.innerHTML='<strong>画像候補が見つかりませんでした。</strong><p class="small">別の料理名で探すか、手元の写真を登録してください。</p>';return}
+  wrap.innerHTML='<strong>🖼️ 写真候補を選ぶ</strong><p class="small">Wikimedia Commonsから取得。写真を確認して選択するとNotionへ保存します。ライセンス・出典は画像ページで確認できます。</p><div class="photo-candidates-grid">'+entries.slice(0,9).map((p,i)=>`<button type="button" class="photo-candidate" data-commonsselect="${i}"><img loading="lazy" src="${attr(p.info.thumburl)}" alt="${attr(p.title)}"><span>${escapeHtml(p.title.replace(/^File:/,''))}</span></button>`).join('')+'</div><p class="small">画像ごとに利用条件が異なります。出典・ライセンスを確認してから選択してください。</p>';
+ }catch(err){wrap.innerHTML='<strong>画像を取得できませんでした。</strong><p class="small">'+escapeHtml(err.message)+'。ネットワーク設定によっては検索できない場合があります。</p>'}
+}
+async function selectFreePhoto(i){
+ const item=window.__commonsCandidates?.[i],name=window.__previewDishName;if(!item||!name)return;
+ const food=data.foods.find(f=>f.name===name);if(!food){toast('写真の保存には、先に「好み」に料理を登録してください');return}
+ const metadata=item.info.extmetadata||{};
+ const license=metadata.LicenseShortName?.value||'';
+ if(!confirm('この写真を「'+name+'」に登録しますか？\n画像：'+item.title+'\nライセンス：'+license+'\n出典・著作者の表示条件を画像ページで確認してください。'))return;
+ const wrap=document.getElementById('photoCandidates');wrap.innerHTML='<strong>Notionへ写真を保存中…</strong>';
+ try{
+  const response=await fetch(item.info.thumburl);if(!response.ok)throw Error('写真のダウンロードに失敗しました');
+  const blob=await response.blob();const bitmap=await createImageBitmap(blob);
+  const scale=Math.min(1,640/bitmap.width,480/bitmap.height);
+  const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(bitmap.width*scale));cv.height=Math.max(1,Math.round(bitmap.height*scale));cv.getContext('2d').drawImage(bitmap,0,0,cv.width,cv.height);
+  await notionGateway('foods','photo',null,food.id,cv.toDataURL('image/jpeg',.7));
+  // Record original Commons file page in Notion as photo source.
+  const source=item.info.descriptionurl||'https://commons.wikimedia.org/wiki/'+encodeURIComponent(item.title.replaceAll(' ','_'));
+  await remoteUpdate('foods',food.id,{...food,photo_source:source});
+  await remoteReload();$('dishDialog').close();openDish(name,0);toast('写真をNotionに登録しました ✓');
+ }catch(err){wrap.innerHTML='<strong>写真を保存できませんでした</strong><p class="small">'+escapeHtml(err.message)+'</p><button class="btn outline" type="button" data-findfreephoto>もう一度探す</button>'}
+}
+function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-findfreephoto>🔎 無料写真を探す</button><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
 function openDish(name,index=0){
  const recipe=recipeOf(name),role=dishRole(name,index);
  window.__previewDishName=name;
  $('dishLabel').textContent=`${dishIcon(name)} ${name} のレシピ`;
  $('dishBody').innerHTML=`${dishPhoto(name)}<div class="dish-title-row"><span class="tag">${escapeHtml(role)}</span><h2>${dishIcon(name)} ${escapeHtml(name)}</h2><span class="pill">⏱ ${escapeHtml(recipe.minutes)}分</span></div>
  <section class="recipe-inner"><h3>📝 この料理の作り方（概要）</h3><p class="small">家庭向けの調理メモです。外部サイトのレシピ本文を自動取得したものではありません。</p><h3>🥕 材料の例</h3>${recipe.ingredients?.length?`<ul>${recipe.ingredients.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`:'<p class="small">材料は未登録です。</p>'}<h3>👩‍🍳 作り方</h3><ol>${recipe.steps.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol></section>
- ${referenceHtml(name,recipe)}
+ <div id="photoCandidates" class="photo-candidates" hidden></div>${referenceHtml(name,recipe)}
  <div class="group"><button class="btn outline" data-backmenu>← 献立メニューに戻る</button><button class="btn ghost" data-close="dishDialog">閉じる</button></div>`;
  $('dishDialog').showModal();
+ if(!photoAvailable(name))searchFreePhoto(name);
 }
 function hideDetail(){const el=$('detailDialog');el.hidden=true;document.querySelector('main.wrap').classList.remove('detail-mode');window.scrollTo(0,0)}
 function normalizeDishList(value){
@@ -585,6 +636,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
 document.addEventListener('click',e=>{
  const trigger=e.target.closest('[data-openphotomenu]');
  if(trigger){const menu=document.getElementById('photoActionMenu');if(menu){menu.hidden=!menu.hidden;trigger.setAttribute('aria-expanded',String(!menu.hidden))}return}
+ const search=e.target.closest('[data-findfreephoto]');if(search){searchFreePhoto(window.__previewDishName);return}
+ const chosen=e.target.closest('[data-commonsselect]');if(chosen){selectFreePhoto(Number(chosen.dataset.commonsselect));return}
  const del=e.target.closest('[data-photoaction="delete"]');
  if(del){const name=window.__previewDishName;if(name){delete data.photos?.[name];save();$('dishDialog').close();openDish(name,0);toast('端末の写真を削除しました。Notionの写真は変更されません')}return}
  if(!e.target.closest('#photoActionMenu')){const menu=document.getElementById('photoActionMenu');if(menu)menu.hidden=true}
