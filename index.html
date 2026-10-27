@@ -68,7 +68,7 @@
 #editMenuChoices button.active,#recFoodChoices button.active{background:#dcebfa!important;color:#194c78!important;border-color:#86b6dd!important}
 #editMenuChoices,#recFoodChoices{display:flex;flex-wrap:wrap;gap:7px}
 #recSelectedFoods button{background:#dcebfa!important;border-color:#a7c7e7!important;color:#245b87!important}
-</style><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./apple-touch-icon.png"><style>
+.recipe-action-primary,.recipe-action-secondary{display:inline-flex;align-items:center;justify-content:center;text-decoration:none!important;border-radius:11px;padding:12px 17px;margin:3px 0;min-height:44px}.reference-box .btn{font-size:15px}.reference-box p{margin:10px 0}.recipe-inner{display:block!important;visibility:visible!important}</style><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./apple-touch-icon.png"><style>
 .weekly-tabs{display:flex;gap:8px;align-items:stretch;margin:14px 0 18px;width:100%}
 .week-tab-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:1;min-width:0}
 .week-tab{border:1px solid #d8e6dc;border-radius:14px;background:#fff;color:#28594d;cursor:pointer;padding:11px 5px;font-weight:750;min-width:0;line-height:1.4}
@@ -235,7 +235,7 @@ function dishIcon(name){
  return '🍽️';
 }
 function photoAvailable(n){return Boolean(data.foods.find(f=>f.name===n)?.photo_url||data.photos[n]||photoName(n))}
-function photoName(n){const key=Object.keys(imgMap).find(x=>n.includes(x));return key?imgMap[key]:null}
+function photoName(n){const exact=imgMap[n];if(exact)return exact;const key=Object.keys(imgMap).filter(x=>n.includes(x)).sort((a,b)=>b.length-a.length)[0];return key?imgMap[key]:null}
 function coverFor(n,cls=''){const name=photoName(n), own=data.foods.find(f=>f.name===n)?.photo_url||data.photos[n];if(own)return `<img src="${own}" alt="${attr(n)}の登録写真" class="${cls}">`;if(name)return `<img src="${(PHOTO_DATA[name]||PHOTO_EXTRA[name])}" alt="${attr(n)}の写真" class="${cls}">`;return `<div class="food-cover ${cls}" role="img" aria-label="料理イラスト">🍽️</div>`}
 function mealDishRank(name){
  const food=data.foods.find(f=>f.name===name);
@@ -254,7 +254,16 @@ function mealDishRank(name){
  return 2;
 }
 function orderedMealItems(items){return [...(items||[])].sort((a,b)=>mealDishRank(a)-mealDishRank(b))}
-const mainOf=m=>orderedMealItems(m.items)[0]||'献立未登録';
+function mainOf(m){
+ const items=orderedMealItems(m.items);
+ // A side dish or plain rice must never outrank an actual main course.
+ const stapleOnly=/^(?:白飯|白米|ご飯|ごはん|ライス|おにぎり|食パン|トースト|麦茶|牛乳)$/;
+ const mains=items.filter(x=>!stapleOnly.test(x)&&mealDishRank(x)===1);
+ if(mains.length)return mains.find(photoAvailable)||mains[0];
+ const substantial=items.filter(x=>!stapleOnly.test(x)&&mealDishRank(x)<=2);
+ if(substantial.length)return substantial.find(photoAvailable)||substantial[0];
+ return items.find(x=>!stapleOnly.test(x))||items[0]||'献立未登録';
+}
 function upDate(food,child){return datetime((data.updates||[]).find(x=>x.foodId===food.id&&x.child===child)?.date)}
 function latestActual(date,type){return data.records.find(r=>r.date===date&&r.type===type)}
 function matches(n){return data.foods.find(f=>f.name===n)||data.foods.find(f=>n.includes(f.name)||f.name.includes(n))}
@@ -472,10 +481,10 @@ function referenceHtml(dish,recipe){
  const saved=safeRecipeUrl(match?.recipe_url||match?.recipe_link||'');
  const builtIn=safeRecipeUrl(recipe.source||'');
  const link=saved||builtIn;
- return `<div class="reference-box"><h3>🔗 参考レシピ</h3>${link?`<p><a href="${attr(link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(saved?'保存した参考レシピを開く':recipe.sourceName||'参考レシピを開く')} ↗</a></p>`:'<p class="small">参考レシピはまだ登録されていません。</p>'}
- <p><a href="${attr(recipeSearchUrl(dish))}" target="_blank" rel="noopener noreferrer">🔎 「${escapeHtml(dish)}」の参考レシピを探す ↗</a></p>
- ${match?.id?`<button type="button" class="btn outline" data-editfood="${attr(match.id)}">${saved?'✏️ 保存したレシピURLを変更':'＋ 気に入ったレシピURLをNotionに登録'}</button>`:'<p class="small">レシピを保存するには、まずこの料理を「好み」に登録してください。</p>'}
- <div class="small">検索結果から選んだレシピURLを登録できます。検索結果の自動選定・無断保存は行いません。</div></div>`;
+ return `<div class="reference-box"><h3>🔗 参考レシピ</h3>${link?`<p><a class="btn recipe-action-primary" href="${attr(link)}" target="_blank" rel="noopener noreferrer">📖 参考レシピを見る ↗</a></p>`:'<p class="small">参考レシピはまだ登録されていません。</p>'}
+ <p><a class="btn outline recipe-action-secondary" href="${attr(recipeSearchUrl(dish))}" target="_blank" rel="noopener noreferrer">🔎 別のレシピを探す ↗</a></p>
+ ${match?.id?`<button type="button" class="btn outline" data-editfood="${attr(match.id)}">${saved?'✏️ レシピを変更・登録':'＋ レシピを登録'}</button>`:'<p class="small">レシピを保存するには、まずこの料理を「好み」に登録してください。</p>'}
+ <div class="small">検索して気に入ったレシピを選び、URLを登録すると次回からすぐ開けます。</div></div>`;
 }
 function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
 function openDish(name,index=0){
@@ -483,7 +492,7 @@ function openDish(name,index=0){
  window.__previewDishName=name;
  $('dishLabel').textContent=`${dishIcon(name)} ${name} のレシピ`;
  $('dishBody').innerHTML=`${dishPhoto(name)}<div class="dish-title-row"><span class="tag">${escapeHtml(role)}</span><h2>${dishIcon(name)} ${escapeHtml(name)}</h2><span class="pill">⏱ ${escapeHtml(recipe.minutes)}分</span></div>
- <section class="recipe-inner"><h3>🥕 材料の例</h3>${recipe.ingredients?.length?`<ul>${recipe.ingredients.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`:'<p class="small">材料は未登録です。</p>'}<h3>👩‍🍳 作り方</h3><ol>${recipe.steps.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol></section>
+ <section class="recipe-inner"><h3>📝 この料理の作り方（概要）</h3><p class="small">家庭向けの調理メモです。外部サイトのレシピ本文を自動取得したものではありません。</p><h3>🥕 材料の例</h3>${recipe.ingredients?.length?`<ul>${recipe.ingredients.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`:'<p class="small">材料は未登録です。</p>'}<h3>👩‍🍳 作り方</h3><ol>${recipe.steps.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol></section>
  ${referenceHtml(name,recipe)}
  <div class="group"><button class="btn outline" data-backmenu>← 献立メニューに戻る</button><button class="btn ghost" data-close="dishDialog">閉じる</button></div>`;
  $('dishDialog').showModal();
@@ -507,7 +516,7 @@ function detail(m){menuFocus=m;const main=mainOf(m);
  $('detailBody').innerHTML=`<div class="card hero"><div class="hero-photo">${coverFor(main,'hero-img')}</div><div class="hero-copy">${m.date?`<div>${dateLabel(m.date)} <span class="pill">${m.type.startsWith('おやつ')?m.type:(m.type==='弁当'?'🍱 お弁当の日':m.type+'ごはん')}</span></div>`:'<span class="pill">✨ 1食分セット例</span>'}<h2>${dishIcon(main)} ${escapeHtml(main)}</h2><div class="sub">${escapeHtml(orderedMealItems(m.items).join('・'))}</div></div></div>
  ${lastServed?`<div class="previous-meal">🕘 前回：${escapeHtml(dateText(lastServed.date))}</div>`:''}
  <h3>🍽 献立メニュー</h3><p class="sub">見たい料理を選ぶと、写真・材料・作り方・参考レシピを確認できます。</p>
- <div class="dishes">${orderedMealItems(m.items).map((x,i)=>`<button type="button" class="dish dish-open" data-dishindex="${i}"><span>${dishIcon(x)} ${escapeHtml(dishRole(x,i))}</span>${coverFor(x,'dish-thumb')}<strong>${escapeHtml(x)}</strong><small>レシピをみる ›</small></button>`).join('')}</div>
+ <div class="dishes">${orderedMealItems(m.items).map((x,i)=>`<button type="button" class="dish dish-open" data-dishname="${attr(x)}" data-dishindex="${i}"><span>${dishIcon(x)} ${escapeHtml(dishRole(x,i))}</span>${coverFor(x,'dish-thumb')}<strong>${escapeHtml(x)}</strong><small>レシピをみる ›</small></button>`).join('')}</div>
  <div class="group"><button class="btn" data-fromdetail>✏️ 献立を記録・編集</button></div>`;
  $('detailDialog').hidden=false;document.querySelector('main.wrap').classList.add('detail-mode');window.scrollTo(0,0);
 }
@@ -540,7 +549,7 @@ function parseSchoolLines(){const month=$('schoolMonth').value,target=$('schoolT
 async function runSchoolOcr(){const files=[...$('schoolPhotos').files];if(!files.length){alert('写真を選択してください');return}const status=$('schoolOcrStatus');const btn=$('schoolOcrRun');btn.disabled=true;try{status.textContent='OCRライブラリを読み込んでいます…';if(!window.Tesseract){await new Promise((resolve,reject)=>{const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';sc.onload=resolve;sc.onerror=()=>reject(Error('OCRライブラリの読み込みに失敗しました'));document.head.appendChild(sc)})}const worker=await Tesseract.createWorker('jpn');let text='';try{for(let i=0;i<files.length;i++){status.textContent=(i+1)+'/'+files.length+'枚を読み取り中…';const out=await worker.recognize(files[i]);text+='\n'+out.data.text}}finally{await worker.terminate()}$('schoolOcrText').value=text.trim();status.textContent='文字を読み取りました。誤字や日付を確認してから「日付別に整理」を押してください。';parseSchoolLines()}catch(e){status.textContent='自動OCRに失敗しました：'+e.message+'。下欄に文字を入力して登録できます。'}finally{btn.disabled=false}}
 async function saveSchool(){if(!schoolParsed.length)return;const rows=[...document.querySelectorAll('[data-schoolrow]')];const btn=$('schoolSave');btn.disabled=true;let done=0;try{for(const x of schoolParsed){const ix=schoolParsed.indexOf(x);const value=rows[ix]?.value.trim()||'';if(!value)continue;const existing=data.schools.find(r=>r.date===x.date);const weekday=new Date(x.date+'T12:00:00').getDay();const target=x.target;const row={meal_date:x.date,ryo_menu:target==='ryo'?value:existing?.ryo||'',aoi_menu:target==='aoi'?value:existing?.aoi||'',ryo_status:target==='ryo'?'給食あり':existing?.ryoStatus||'未確認',aoi_status:target==='aoi'?(weekday===0||weekday===6?'本人登園なし':'給食あり'):existing?.aoiStatus||'内容未確認'};if(existing?.id)await remoteUpdate('school_meals',existing.id,row);else await remoteInsert('school_meals',row);done++}await remoteReload();render();$('schoolUploadDialog').close();toast('給食'+done+'日分をNotionに保存しました ✓')}catch(e){alert(done+'日分保存後にエラー：'+e.message+'。再実行すると上書きされるため、内容を確認してください。')}finally{btn.disabled=false}}
 document.addEventListener('click',e=>{if(e.target.closest('#schoolUploadOpen'))schoolUploadOpen();if(e.target.closest('#schoolOcrRun'))runSchoolOcr();if(e.target.closest('#schoolParse'))parseSchoolLines();if(e.target.closest('#schoolSave'))saveSchool()});
-document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[data-backdetail],[data-close],[data-fromdetail],[data-addrecord],[data-recset],[data-chooseset],[data-setfilter],[data-choosesource],[data-newchoosefood],[data-choosecat],[data-openlibrary],[data-backlibrary],[data-toggle-dish],[data-savepicked],[data-clearpicked],[data-editrecord],[data-editmenu],[data-delrecord],[data-cat],[data-newfood],[data-editfood],[data-dishindex],[data-backmenu],[data-gopast],[data-gomenu],[data-month],[data-week],[data-weekpage],[data-return-menu-editor],#resetPreview');if(!t)return;
+document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[data-backdetail],[data-close],[data-fromdetail],[data-addrecord],[data-recset],[data-chooseset],[data-setfilter],[data-choosesource],[data-newchoosefood],[data-choosecat],[data-openlibrary],[data-backlibrary],[data-toggle-dish],[data-savepicked],[data-clearpicked],[data-editrecord],[data-editmenu],[data-delrecord],[data-cat],[data-newfood],[data-editfood],[data-dishindex],[data-dishname],[data-backmenu],[data-gopast],[data-gomenu],[data-month],[data-week],[data-weekpage],[data-return-menu-editor],#resetPreview');if(!t)return;
  if(t.hasAttribute('data-return-menu-editor')){returnToMenuEditor=false;tab='menu';render();$('setRegisterDialog').showModal();renderEditMenuChoices();return}
  if(t.dataset.week){selectedWeek=t.dataset.week;render();return}
  if(t.dataset.weekpage){weekPage=Math.max(0,weekPage+(t.dataset.weekpage==='next'?1:-1));selectedWeek=addDaysISO(weekStartOf(today()),weekPage*28);render();return}
@@ -548,7 +557,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
  if(t.hasAttribute('data-gopast')){tab='past';monthChoice=null;render();window.scrollTo(0,0);return}
  if(t.hasAttribute('data-gomenu')){tab='menu';monthChoice=null;render();window.scrollTo(0,0);return}
  if(t.dataset.detail){const m=data.menus.find(x=>x.id===t.dataset.detail);if(m)detail(m)}
- if(t.dataset.dishindex!==undefined){const m=menuFocus;if(m?.items){const idx=Number(t.dataset.dishindex);const dish=m.items[idx];if(dish){hideDetail();openDish(dish,idx)}}}
+ if(t.dataset.dishindex!==undefined){const m=menuFocus;if(m?.items){const idx=Number(t.dataset.dishindex);const dish=t.dataset.dishname||orderedMealItems(m.items)[idx];if(dish){hideDetail();openDish(dish,idx)}}}
  if(t.dataset.backmenu!==undefined){$('dishDialog').close();if(menuFocus)detail(menuFocus)}
  if(t.hasAttribute('data-backdetail'))hideDetail();
  if(t.dataset.close)$(t.dataset.close).close();
