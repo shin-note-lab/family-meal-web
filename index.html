@@ -809,7 +809,8 @@ function settingsView(){return `<h2>⚙️ アプリ設定</h2><div class="card"
 <div class="family-member-status"><div class="family-member-head"><strong>家族の登録状況</strong><button type="button" class="btn outline" onclick="loadFamilyMembers()">更新</button></div>
 <p class="sub">「利用開始」はログイン履歴がある状態です。招待メールの開封状況は確認できません。</p>
 <div id="familyMemberList" role="status">「更新」を押すと登録状況を確認できます。</div></div></div>`:''}<button class="btn outline" id="syncNow" onclick="window.location.reload()">↻ データを再取得</button> <button class="btn outline" id="logoutNow" onclick="remoteLogout()">ログアウト</button></div>`}
-function render(){document.addEventListener('click',e=>{const button=e.target.closest('[data-addfoodfromrecipe]');if(button)void registerFoodFromRecipe(button.dataset.addfoodfromrecipe)});
+document.addEventListener('click',e=>{const button=e.target.closest('[data-addfoodfromrecipe]');if(button)void registerFoodFromRecipe(button.dataset.addfoodfromrecipe)});
+function render(){
 document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===(tab==='sets'?'menu':tab)));$('app').innerHTML=({menu:menuView,past:pastView,foods:foodsView,settings:settingsView,sets:setsView})[tab]();
  if(tab==='settings'&&remoteMember?.role==='owner')void loadFamilyMembers();
  const choiceSearch=$('chooseFoodSearch');if(choiceSearch){choiceSearch.addEventListener('input',e=>{chooseSearch=e.target.value;const p=e.target.selectionStart;render();const input=$('chooseFoodSearch');input.focus();input.setSelectionRange(p,p)})}
@@ -998,7 +999,7 @@ async function registerFoodFromRecipe(name){
   openDish(name);toast('料理を登録しました。アレンジを入力できます');
  }catch(err){toast('料理を登録できませんでした。もう一度お試しください。')}
 }
-function hideDetail(fromPop=false){const el=$('detailDialog');el.hidden=true;document.querySelector('main.wrap').classList.remove('detail-mode');if(!fromPop&&history.state?.familyMealDetail){history.replaceState({...history.state,familyMealDetail:false},'');}window.scrollTo(0,0)}
+function hideDetail(fromPop=false){const el=$('detailDialog');if(el.hidden)return;el.hidden=true;const main=document.querySelector('main.wrap');main.classList.remove('detail-mode');main.hidden=false;if(!fromPop&&history.state?.familyMealDetail){history.back();}window.scrollTo(0,0)}
 window.addEventListener('popstate',()=>{if(!$('detailDialog').hidden)hideDetail(true)});
 function normalizeDishList(value){
  const pieces=Array.isArray(value)?value:String(value||'').split(/[、，,・\n]+/);
@@ -1013,14 +1014,14 @@ function previousActualMeal(m){
   .sort((a,b)=>b.date.localeCompare(a.date))[0]||null;
 }
 function detail(m){menuFocus=m;const main=mainOf(m);
- $('detailLabel').textContent='献立メニュー';
+
  const lastServed=previousActualMeal(m);
  $('detailBody').innerHTML=`<div class="card hero"><div class="hero-photo">${coverFor(main,'hero-img')}</div><div class="hero-copy">${m.date?`<div>${dateLabel(m.date)} <span class="pill">${m.type.startsWith('おやつ')?m.type:(m.type==='弁当'?'🍱 お弁当の日':m.type+'ごはん')}</span></div>`:'<span class="pill">✨ 1食分セット例</span>'}<h2>${dishIcon(main)} ${escapeHtml(main)}</h2><div class="sub">${escapeHtml(orderedMealItems(m.items).join('・'))}</div></div></div>
  ${lastServed?`<div class="previous-meal">🕘 前回：${escapeHtml(dateText(lastServed.date))}</div>`:''}
  <h3>🍽 献立メニュー</h3>
  <div class="dishes">${orderedMealItems(m.items).map((x,i)=>`<button type="button" class="dish dish-open" data-dishname="${attr(x)}" data-dishindex="${i}"><span>${dishIcon(x)} ${escapeHtml(dishRole(x,i))}</span>${coverFor(x,'dish-thumb')}<strong>${escapeHtml(x)}</strong><small>レシピをみる ›</small></button>`).join('')}</div>
  <div class="group"><button class="btn" data-fromdetail>✏️ 献立を記録・編集</button></div>`;
- if($('detailDialog').hidden&&!history.state?.familyMealDetail)history.pushState({...history.state,familyMealDetail:true},'',location.href);$('detailDialog').hidden=false;document.querySelector('main.wrap').classList.add('detail-mode');window.scrollTo(0,0);
+ if($('detailDialog').hidden&&!history.state?.familyMealDetail)history.pushState({...history.state,familyMealDetail:true},'',location.href);$('detailDialog').hidden=false;document.querySelector('main.wrap').classList.add('detail-mode');document.querySelector('main.wrap').hidden=true;window.scrollTo(0,0);
 }
 const recCategories=['すべて','主食・メイン','主菜・おかず','副菜','汁物','デザート','お菓子'];
 let recActiveCategory='すべて';
@@ -1058,7 +1059,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
  if(t.dataset.month){monthChoice=t.dataset.month==='all'?null:t.dataset.month;render();return}
  if(t.hasAttribute('data-gopast')){tab='past';monthChoice=null;render();window.scrollTo(0,0);return}
  if(t.hasAttribute('data-gomenu')){tab='menu';monthChoice=null;render();window.scrollTo(0,0);return}
- if(t.dataset.detail){const m=data.menus.find(x=>x.id===t.dataset.detail);if(m)detail(m)}
+ if(t.dataset.detail){const m=data.menus.find(x=>x.id===t.dataset.detail);if(m)detail(m);else toast('献立が見つかりません。データを再取得してください。');return}
  if(t.dataset.dishindex!==undefined){const m=menuFocus;if(m?.items){const idx=Number(t.dataset.dishindex);const dish=t.dataset.dishname||orderedMealItems(m.items)[idx];if(dish){hideDetail();openDish(dish,idx)}}}
  if(t.dataset.backmenu!==undefined){$('dishDialog').close();if(menuFocus)detail(menuFocus)}
  if(t.hasAttribute('data-backdetail'))hideDetail();
