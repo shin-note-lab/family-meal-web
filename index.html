@@ -197,6 +197,7 @@ async function notionGateway(table,action,row=null,id=null,data_url=null){
  const result=await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table,action,row,id,data_url}});
  return result.rows||[];
 }
+async function upsertMeal(row){if(!await remoteValid())throw Error('ログイン期限が切れました');const result=await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'menus',action:'menu_upsert',row}});return result.rows||[]}
 async function remoteInsert(table,row){return notionGateway(table,'create',row)}
 async function remoteUpdate(table,id,row){return notionGateway(table,'update',row,id)}
 async function remoteDelete(table,id){return notionGateway(table,'delete',null,id)}
@@ -204,13 +205,28 @@ async function retryNotionPending(){toast('データは自動で共有されて�
 async function remoteNotion(body){throw Error('旧同期APIは廃止しました')}
 function remoteDecodeRecord(row){let place='自宅',memo=row.notes||'';if(memo.startsWith('[MEAL_RECORD_V1]')){try{const obj=JSON.parse(memo.slice(16));place=obj.place||place;memo=obj.memo||''}catch{}}
  return {id:row.id,date:row.meal_date,type:row.meal_type,menu:row.description,place,memo,savedAt:row.updated_at||''}}
+// One canonical visible entry per day and meal slot. Preserve older rows in Notion for audit.
+function latestBySlot(rows){
+ const chosen=new Map();
+ for(const r of rows){const k=r.meal_date+'|'+r.meal_type;const old=chosen.get(k);
+  const rank=x=>Date.parse(x.updated_at||x.created_at||'')||0;
+  if(!old||rank(r)>rank(old)||(rank(r)===rank(old)&&String(r.id)>String(old.id)))chosen.set(k,r);
+ }
+ return [...chosen.values()];
+}
+function slotRows(date,type,actual){return (actual?data.records:data.menus).filter(x=>x.date===date&&x.type===type)}
+async function verifyMealSaved(date,type,expected,state){
+ await remoteReload();
+ const hits=slotRows(date,type,state==='実食');
+ if(hits.length!==1||hits[0][state==='実食'?'menu':'items']?.toString()!== (state==='実食'?expected:expected.split('、').toString()))throw Error('保存内容を確認できませんでした。画面を更新して確認してください');
+}
 async function remoteReload(){
  const [foods,menus,schools]=await Promise.all([
   notionGateway('foods','list'),notionGateway('menus','list'),notionGateway('school_meals','list')
  ]);
  data.foods=foods.map(x=>({...x,recipe_link:x.recipe_url||'',note:x.ryo_note||x.aoi_note||''})).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
- data.menus=menus.filter(x=>x.state!=='実食').map(x=>({id:x.id,date:x.meal_date,type:x.meal_type,items:(x.description||'').split(/[、，,]/).map(s=>s.trim()).filter(Boolean),status:x.state}));
- data.records=menus.filter(x=>x.state==='実食').map(remoteDecodeRecord);
+ data.menus=latestBySlot(menus.filter(x=>x.state!=='実食')).map(x=>({id:x.id,date:x.meal_date,type:x.meal_type,items:(x.description||'').split(/[、，,]/).map(s=>s.trim()).filter(Boolean),status:x.state}));
+ data.records=latestBySlot(menus.filter(x=>x.state==='実食')).map(remoteDecodeRecord);
  data.schools=schools.map(x=>({id:x.id,date:x.meal_date,ryo:x.ryo_menu,aoi:x.aoi_menu,ryoStatus:x.ryo_status,aoiStatus:x.aoi_status}));
  data.updates=foods.flatMap(x=>[{foodId:x.id,child:'りょう',date:x.updated_at},{foodId:x.id,child:'あおい',date:x.updated_at}]);
 }
@@ -392,13 +408,13 @@ function chooseSet(id){const x=allMealSets().find(a=>String(a.id)===String(id));
 $('setRegisterForm').addEventListener('submit',async e=>{
  e.preventDefault();const d=$('setRegisterDate').value,type=$('setRegisterType').value;
  if(!d||!['朝','昼','夕','おやつ（午前）','おやつ（午後）'].includes(type)||!pendingSetItems.length){alert('料理を1品以上選んでください');return;}
- const old=data.menus.find(m=>m.date===d&&m.type===type&&m.id!==pendingEditMenuId)||data.records.find(m=>m.date===d&&m.type===type&&m.id!==pendingEditMenuId);
+ const old=data.menus.find(m=>m.date===d&&m.type===type&&m.id!==pendingEditMenuId);
  if(old&&!confirm('この日の登録済み献立を変更しますか？'))return;
  const knownNames=new Set(data.foods.map(f=>f.name));const missingFoods=[...new Set(pendingSetItems.filter(n=>!knownNames.has(n)))];
  const btn=e.submitter;if(btn)btn.disabled=true;
  try{for(const name of missingFoods){await remoteInsert('foods',{name,categories:['主食・メイン'],ryo_preference:'未確認',aoi_preference:'未確認',ryo_note:'',aoi_note:''})}const payload={meal_date:d,meal_type:type,description:pendingSetItems.join('、'),state:pendingEditMenuId?(data.menus.find(m=>m.id===pendingEditMenuId)?.status||'採用'):'採用',notes:''};
- if(pendingEditMenuId)await remoteUpdate('menus',pendingEditMenuId,payload);else if(old)await remoteUpdate('menus',old.id,payload);else await remoteInsert('menus',payload);
- await remoteReload();$('setRegisterDialog').close();pendingEditMenuId=null;setPicked=[];tab='menu';render();window.scrollTo(0,0);toast('保存しました')
+ await upsertMeal(payload);
+ await verifyMealSaved(d,type,payload.description,'採用');$('setRegisterDialog').close();pendingEditMenuId=null;setPicked=[];tab='menu';render();window.scrollTo(0,0);toast('保存しました')
  }catch(err){alert('献立を登録できませんでした。\n'+err.message)}finally{if(btn)btn.disabled=false}
 });
 function nextSuggest(){const recent=recentMeals().slice(0,12).flatMap(r=>r.menu.split(/[、，,\/]/).map(x=>x.trim()));const seen=new Set(recent);
@@ -753,8 +769,15 @@ $('recordForm').addEventListener('submit',async e=>{
  try{
  for(const item of pendingRecFoods){if(!recNames().includes(item.name)||data.foods.some(f=>f.name===item.name))continue;await remoteInsert('foods',{name:item.name,categories:item.categories,ryo_preference:item.ryo_preference,aoi_preference:item.aoi_preference,ryo_note:item.note||'',aoi_note:item.note||''})}
  const payload={meal_date:r.date,meal_type:r.type,description:r.menu,state:'実食',notes:'[MEAL_RECORD_V1]'+JSON.stringify({place:r.place,memo:r.memo})};
- if(oldId)await remoteUpdate('menus',oldId,payload);else await remoteInsert('menus',payload);
- await remoteReload();$('recordDialog').close();render();toast('保存しました');
+ const actual=slotRows(r.date,r.type,true).find(x=>x.id===oldId)||slotRows(r.date,r.type,true)[0];
+ await upsertMeal(payload);
+ // An actual meal supersedes the old plan in the home menu view.
+ const planned=slotRows(r.date,r.type,false)[0];
+ await upsertMeal({meal_date:r.date,meal_type:r.type,description:r.menu,state:'変更',notes:''});
+ await verifyMealSaved(r.date,r.type,r.menu,'実食');
+ const visible=slotRows(r.date,r.type,false)[0];
+ if(!visible||visible.items.join('、')!==r.menu)throw Error('予定献立への反映を確認できませんでした');
+ $('recordDialog').close();render();toast('保存しました');
  }catch(err){alert('実食記録を保存できませんでした。\n'+err.message)}finally{if(btn)btn.disabled=false}
 });
 $('foodRecipeSearch').addEventListener('click',()=>{const name=$('foodName').value.trim();if(!name){toast('先に料理名を入力してください');return}window.open(recipeSearchUrl(name),'_blank','noopener,noreferrer')});
