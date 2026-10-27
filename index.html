@@ -319,7 +319,7 @@ async function loadFamilyMembers(){
   const members=Array.isArray(result.members)?result.members:[];
   if(!members.length){target.textContent='登録されている家族はいません。';return}
   target.innerHTML=members.map(x=>{
-   const label=x.role==='owner'?'管理者':x.status==='used'?'利用開始':x.status==='confirmed'?'メール認証済み':x.status==='invited'?'招待中':'確認できません';
+   const label=x.role==='owner'?'管理者':x.status==='used'?'利用開始':x.status==='confirmed'?'登録済み（初回利用待ち）':x.status==='invited'?'招待中':'確認できません';
    const dt=x.last_sign_in_at?new Date(x.last_sign_in_at):null;
    const last=dt&&!Number.isNaN(dt.getTime())?'最終ログイン：'+dt.toLocaleString('ja-JP'):'';
    return '<div class="family-member-row"><span><strong>'+escapeHtml(x.email||'メール不明')+'</strong><small>'+escapeHtml(last)+'</small></span><span class="family-member-tag">'+escapeHtml(label)+'</span></div>';
@@ -338,7 +338,7 @@ async function inviteFamilyMember(event){
   status.textContent='招待メールを送信しました。相手がメール内のリンクからパスワードを設定すると利用できます。';
   form.reset();
   await loadFamilyMembers();
- }catch(err){const m=String(err.message||'');status.textContent='招待できませんでした。'+(m.includes('INVALID_EMAIL')?'メールアドレスを確認してください。':m.includes('OWNER_ONLY')?'管理者アカウントでログインしてください。':m.includes('FAMILY_NOT_FOUND')?'家族の登録状況を確認してください。':m.includes('429')?'時間をおいて再度お試しください。':'メール送信設定や招待先の登録状況を確認してください。')+'（'+m.slice(0,110)+'）'}
+ }catch(err){const m=String(err.message||'');status.textContent='招待できませんでした。'+(m.includes('INVALID_EMAIL')?'メールアドレスを確認してください。':m.includes('OWNER_ONLY')?'管理者アカウントでログインしてください。':m.includes('FAMILY_NOT_FOUND')?'家族の登録状況を確認してください。':m.includes('ALREADY_MEMBER')?'すでに家族として登録されています。':m.includes('ALREADY_OTHER_FAMILY')?'このメールアドレスは別の家族に登録されています。':m.includes('ACCOUNT_EXISTS')?'すでにアカウントがあります。管理者に相談してください。':m.includes('USER_LOOKUP_LIMIT')?'登録状況を安全に確認できなかったため招待を中止しました。':m.includes('429')?'時間をおいて再度お試しください。':'メール送信設定や招待先の登録状況を確認してください。')}
  finally{button.disabled=false}
 }
 async function handleFamilyInviteLink(){
@@ -640,9 +640,10 @@ function setsView(){return `<div class="section-title"><button class="btn outlin
 function foodsView(){const arr=data.foods.filter(f=>(cat==='すべて'||f.categories.includes(cat))&&f.name.toLowerCase().includes(query.toLowerCase()));return `${returnToMenuEditor?'<div class="card" style="margin-bottom:14px;background:#f3f9f5"><strong>🍽 献立の編集中</strong><p class="small">新しい料理は好みが未確認でも登録できます。登録後は献立編集画面に戻ります。</p><button type="button" class="btn outline" data-return-menu-editor>← 献立編集に戻る</button></div>':''}<div class="section-title"><h2>💚 料理と家族の好み</h2><button class="btn" data-newfood>＋ 料理を追加</button></div><div class="card"><input class="search" id="foodSearch" type="search" value="${attr(query)}" placeholder="料理名で検索"><div class="sp"></div><div class="filterchips">${categories.map(c=>`<button class="${cat===c?'active':''}" data-cat="${c}">${c}</button>`).join('')}</div><div class="small" style="margin-top:10px">${arr.length}品を表示 / 合計${data.foods.length}品。好みの最終変更日は子ども別に確認できます。</div></div><div class="itemlist">${arr.map(f=>`<div class="fooditem">${coverFor(f.name)}<h3>${escapeHtml(f.name)}</h3><div><span class="pill">👦 ${escapeHtml(f.ryo_preference)}</span><span class="pill">👧 ${escapeHtml(f.aoi_preference)}</span></div><div class="meta">りょう：${escapeHtml(upDate(f,'りょう'))}<div>あおい：${escapeHtml(upDate(f,'あおい'))}</div></div><button class="btn outline" style="margin-top:11px" data-editfood="${f.id}">好みを編集</button></div>`).join('')}</div>`}
 function settingsView(){return `<h2>⚙️ アプリ設定</h2><div class="card"><h3>🔐 家族共有・同期</h3><p>ログイン中：${escapeHtml(remoteUser?.email||'')}</p><p class="sub">家族で登録した料理や献立は、みんなで共有できます。</p>${remoteMember?.role==='owner'?`<div class="family-invite"><h3>家族を招待</h3><p class="sub">招待した家族は献立・実食・好み・給食を閲覧、登録、編集できます。家族の招待は管理者のみが行えます。招待先にメールが届きます。</p><form id="familyInviteForm" onsubmit="inviteFamilyMember(event)"><label for="familyInviteEmail">招待するメールアドレス</label><div class="family-invite-row"><input id="familyInviteEmail" type="email" required autocomplete="off" placeholder="family@example.com"><button class="btn" type="submit">招待メールを送信</button></div><p id="familyInviteStatus" role="status"></p></form>
 <div class="family-member-status"><div class="family-member-head"><strong>家族の登録状況</strong><button type="button" class="btn outline" onclick="loadFamilyMembers()">更新</button></div>
-<p class="sub">「利用開始」はログイン履歴が確認できた状態です。招待メールの開封状況は確認できません。</p>
+<p class="sub">「利用開始」はログイン履歴がある状態です。招待メールの開封状況は確認できません。</p>
 <div id="familyMemberList" role="status">「更新」を押すと登録状況を確認できます。</div></div></div>`:''}<button class="btn outline" id="syncNow" onclick="window.location.reload()">↻ データを再取得</button> <button class="btn outline" id="logoutNow" onclick="remoteLogout()">ログアウト</button></div>`}
 function render(){document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===(tab==='sets'?'menu':tab)));$('pagetitle').textContent=({menu:'献立をえらぶ',past:'過去献立',foods:'好き嫌いを記録',settings:'アプリの設定',sets:'献立を選ぶ'})[tab];$('app').innerHTML=({menu:menuView,past:pastView,foods:foodsView,settings:settingsView,sets:setsView})[tab]();
+ if(tab==='settings'&&remoteMember?.role==='owner')void loadFamilyMembers();
  const choiceSearch=$('chooseFoodSearch');if(choiceSearch){choiceSearch.addEventListener('input',e=>{chooseSearch=e.target.value;const p=e.target.selectionStart;render();const input=$('chooseFoodSearch');input.focus();input.setSelectionRange(p,p)})}
  const search=$('foodSearch');if(search){search.addEventListener('input',e=>{query=e.target.value;const p=e.target.selectionStart;render();$('foodSearch').focus();$('foodSearch').setSelectionRange(p,p)})}
 }
