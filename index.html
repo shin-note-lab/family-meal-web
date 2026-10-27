@@ -884,6 +884,15 @@ async function selectFreePhoto(i){
  }catch(err){wrap.innerHTML='<strong>写真を保存できませんでした</strong><p class="small">'+escapeHtml(err.message)+'</p><button class="btn outline" type="button" data-findfreephoto>もう一度探す</button>'}
 }
 async function applyRecipePhoto(food,button){
+ // Recipe pages can expose unrelated OpenGraph images; do not propose these as dish photos.
+ // Use the explicit photo picker, where the user sees the selected image before saving.
+ if(button){const menu=document.getElementById('photoActionMenu');if(menu)menu.hidden=true}
+ toast('参考サイトの画像は別の料理の場合があります。写真候補から選ぶか、写真をアップロードしてください。');
+ const wrap=document.getElementById('photoCandidates');
+ if(wrap){wrap.scrollIntoView({behavior:'smooth',block:'nearest'});await searchFreePhoto(food.name)}
+ return false;
+}
+async function legacyRecipePhotoPreview(food,button){
  if(!food?.id||!safeRecipeUrl(food.recipe_url||'')){toast('先にレシピURLを登録してください');return false}
  if(button){button.disabled=true;button.textContent='写真を取得中…'}
  try{
@@ -918,7 +927,7 @@ async function applyRecipePhoto(food,button){
  }catch(err){toast('レシピの写真を取得できませんでした。画像のアップロードをお試しください');return false}
  finally{if(button){button.disabled=false;button.textContent='🍳 レシピの写真を使う'}}
 }
-function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-recipephoto>🍳 レシピの写真を使う</button><button type="button" data-findfreephoto>🔎 無料写真を探す</button><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
+function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-recipephoto>🔎 写真候補を選ぶ</button><button type="button" data-findfreephoto>🔎 無料写真を探す</button><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
 function cookingText(recipe){
  const ingredients=(recipe.ingredients||[]).map(x=>'・'+x).join('\n');
  const steps=(recipe.steps||[]).map((x,i)=>(i+1)+'. '+x).join('\n');
@@ -938,6 +947,7 @@ function openDish(name,index=0){
  $('dishBody').innerHTML=`${dishPhoto(name)}<div class="dish-title-row"><span class="tag">${escapeHtml(role)}</span><h2>${dishIcon(name)} ${escapeHtml(name)}</h2><span class="pill">⏱ ${escapeHtml(recipe.minutes)}${typeof recipe.minutes==='number'?'分':''}</span></div>
  <section class="recipe-inner editable-cooking"><div class="cooking-heading"><h3>📝 材料・作り方</h3>${food?`<button type="button" class="btn outline cooking-edit" id="cookingEditBtn" onclick="toggleCookingEditor()">✏️ 編集</button>`:''}</div>
  <div id="cookingRead" class="cooking-read">${cookingDisplay(content)}</div>
+ ${food&&chosenRecipe?`<div class="group" style="margin:12px 0"><button type="button" class="btn outline" id="recipeExtractBtn" onclick="previewRecipeExtraction()">🔄 参考レシピから材料・作り方を自動取得</button><span class="small" id="recipeExtractStatus"></span></div><section id="recipeExtractPanel" class="recipe-inner" hidden><h3>取得内容を確認・編集</h3><p class="small">保存するまで既存の材料・作り方は変更されません。取得元の内容と照合してください。</p><textarea id="recipeExtractText" rows="12" maxlength="1800" aria-label="取得した材料と作り方"></textarea><div class="group"><button type="button" class="btn primary" id="recipeExtractSave" onclick="saveExtractedRecipe()">確認してNotionに保存</button><button type="button" class="btn outline" onclick="document.getElementById('recipeExtractPanel').hidden=true">キャンセル</button></div></section>`:''}
  ${food?`<form id="cookingEditForm" onsubmit="saveCookingNotes(event)" hidden><textarea id="cookingNotesText" rows="9" maxlength="1800" aria-label="材料と作り方を編集">${escapeHtml(content)}</textarea><div class="cooking-actions"><button class="btn" type="submit" id="cookingSaveBtn">保存</button><button class="btn outline" type="button" onclick="toggleCookingEditor(false)">キャンセル</button><span id="cookingStatus" role="status"></span></div></form>`:`<p class="small">材料・作り方を編集するには、先に料理を登録してください。</p><button type="button" class="btn outline" data-addfoodfromrecipe="${attr(name)}">＋ 料理を登録</button>`}
  </section>
  ${chosenRecipe?`<section class="recipe-inner saved-recipe"><h3>⭐ 定番レシピ</h3><a class="recipe-action recipe-action-primary" href="${attr(chosenRecipe)}" target="_blank" rel="noopener noreferrer">📖 保存したレシピを開く</a></section>`:''}
@@ -945,6 +955,38 @@ function openDish(name,index=0){
  <div class="group"><button class="btn outline" data-backmenu>← 献立メニューに戻る</button><button class="btn ghost" data-close="dishDialog">閉じる</button></div>`;
  $('dishDialog').showModal();
  if(!photoAvailable(name)&&!chosenRecipe)searchFreePhoto(name);
+}
+async function previewRecipeExtraction(){
+ const food=matches(window.__previewDishName||''),button=$('recipeExtractBtn'),status=$('recipeExtractStatus');
+ if(!food?.id||!button)return;
+ button.disabled=true;status.textContent='レシピを取得中…';
+ try{
+  if(!await remoteValid())throw Error('AUTH');
+  const result=await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'recipe_extract_preview',id:food.id}});
+  if(!result.note)throw Error('EMPTY');
+  $('recipeExtractText').value=result.note;
+  $('recipeExtractPanel').hidden=false;
+  status.textContent='取得しました。内容を確認して保存してください。';
+ }catch(err){
+  const message=String(err.message||err);
+  status.textContent=/RECIPE_NAME_MISMATCH/.test(message)?'参考URLの料理名が一致しません。URLを確認してください。':/RECIPE_CONTENT_MISSING/.test(message)?'このサイトから材料と手順を取得できませんでした。':'自動取得できませんでした。参考URLやサイトの対応状況を確認してください。';
+ }finally{button.disabled=false}
+}
+async function saveExtractedRecipe(){
+ const food=matches(window.__previewDishName||''),note=$('recipeExtractText')?.value.trim(),button=$('recipeExtractSave');
+ if(!food?.id||!note||!button)return;
+ button.disabled=true;
+ try{
+  const rows=await notionGateway('foods','cooking_notes_update',{cooking_notes:note},food.id);
+  if(!rows[0])throw Error('SAVE_FAILED');
+  const i=data.foods.findIndex(x=>x.id===food.id);
+  if(i>=0)data.foods[i]={...data.foods[i],...rows[0],recipe_link:rows[0].recipe_url||''};
+  $('cookingRead').innerHTML=cookingDisplay(note);
+  $('cookingNotesText').value=note;
+  $('recipeExtractPanel').hidden=true;
+  toast('材料・作り方をNotionに保存しました');
+ }catch(err){toast('保存できませんでした。もう一度お試しください')}
+ finally{button.disabled=false}
 }
 function toggleCookingEditor(force){
  const form=$('cookingEditForm'),read=$('cookingRead'),button=$('cookingEditBtn');if(!form)return;
@@ -1164,7 +1206,7 @@ $('foodForm').addEventListener('submit',async e=>{
  // A newly saved favorite recipe supplies its own picture if none is registered.
  if(url&&(!old||url!==(old.recipe_url||''))&&!file){
   const saved=data.foods.find(x=>x.id===savedFoodId);
-  if(saved&&!photoAvailable(saved.name))await applyRecipePhoto(saved,null);
+  if(saved&&!photoAvailable(saved.name))toast('写真は料理の画面から候補を確認して選んでください');
  }
  if(addFoodToSelection){if(!setPicked.includes(n))setPicked.push(n);chooseSource='foods';chooseCategory='すべて';chooseSearch='';addFoodToSelection=false}
  $('foodDialog').close();if(returnToMenuEditor){if(!pendingSetItems.includes(n))pendingSetItems.push(n);returnToMenuEditor=false;tab='menu';render();$('setRegisterDialog').showModal();renderEditMenuChoices()}else render();toast('保存しました');
