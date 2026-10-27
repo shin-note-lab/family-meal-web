@@ -415,7 +415,7 @@ function setCards(){
  <p class="small">登録済みの献立をセットとして表示します。セットを登録するたびに、ここから再利用できます。料理名をタップして組み替えることもできます。未登録の料理は献立保存時に「好み」に自動追加します。</p>
  ${pickedPanel()}
  <div style="margin:10px 0 15px"><button class="btn outline" data-newchoosefood="">＋ メニューにない料理を新規登録</button></div>
- <div class="itemlist">${!list.length?'<p class="small">登録済みの献立セットはまだありません。「好みから選ぶ」で料理を選んで献立登録すると、ここに追加されます。</p>':''}${list.map(x=>`<div class="card" style="margin:0 0 10px"><div class="small">${x.type==='朝'?'🌞 朝食':x.type==='昼'?'🍚 昼食':x.type==='おやつ（午前）'?'🍪 おやつ（午前）':x.type==='おやつ（午後）'?'🍰 おやつ（午後）':'🌙 夕食'} 登録済みセット・使用${x.count}回</div>
+ <div class="itemlist">${!list.length?'<p class="small">登録済みの献立セットはまだありません。「好みから選ぶ」で料理を選んで献立登録すると、ここに追加されます。</p>':''}${list.map(x=>`<div class="card" style="margin:0 0 10px"><div class="small">${x.type==='朝'?'🌞 朝食':x.type==='昼'?'🍚 昼食':x.type==='おやつ（午前）'?'🍪 おやつ（午前）':x.type==='おやつ（午後）'?'🍰 おやつ（午後）':'🌙 夕食'} ${x.learned?'実食から登録したセット・使用'+x.count+'回':'おすすめ献立セット'}</div>
  <div class="filterchips" style="margin:9px 0">${x.items.map(item=>`<button class="${setPicked.includes(item)?'active':''}" data-toggle-dish="${attr(item)}">${setPicked.includes(item)?'✓ ': '＋ '}${escapeHtml(item)}</button>`).join('')}</div>
  <div class="group"><button class="btn outline" style="padding:6px 11px;font-size:12px;min-height:30px" data-chooseset="${attr(String(x.id))}">セット登録</button></div></div>`).join('')}</div>`;
 }
