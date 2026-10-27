@@ -903,7 +903,7 @@ function weekTabs(){const base=weekStartOf(today());if(!selectedWeek||selectedWe
 let monthChoice=null;const monthList=()=>[...new Set([...data.menus,...data.schools,...data.records].map(x=>x.date.slice(0,7)))].sort();
 function monthBar(mode){const months=monthList().filter(m=>mode==='past'?m<=today().slice(0,7):m>=today().slice(0,7));if(monthChoice&&!months.includes(monthChoice))monthChoice=null;return `<div class="month-tabs">${months.map(m=>`<button class="month-pill ${monthChoice===m?'active':''}" data-month="${m}">${m.split('-')[1]*1}月</button>`).join('')}<button class="month-pill ${!monthChoice?'active':''}" data-month="all">すべて</button></div>`}
 function pastView(){return `<div class="section-title"><h2>🗓 過去献立</h2></div><p class="sub">今日より前の献立と給食を確認・編集できます。</p>${monthBar('past')}${menuCards('past',monthChoice)}<button class="btn outline" data-gomenu>← 献立へ戻る</button>`}
-function menuView(){const sets=allMealSets();return `<div class="section-title"><h2>🍲 1日の献立と給食</h2><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn outline" id="schoolUploadOpen">📷 給食をアップ</button><button class="btn" data-addrecord="">＋ 献立を記録・編集</button></div></div>
+function menuView(){const sets=allMealSets();return `<div class="section-title"><h2>🍲 1日の献立と給食</h2><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn outline" id="schoolUploadOpen">📷 給食をアップ</button><button class="btn" data-newmeal="">＋ 新規登録</button></div></div>
 ${weekTabs()}
 <div class="card"><button class="btn outline" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center" data-openlibrary=""><span>✨ 献立を選ぶ <span class="pill">全${sets.length}種類・実食から自動更新</span></span><span>›</span></button></div>
 ${menuCards("current",null,selectedWeek)}`}
@@ -1228,6 +1228,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
  if(t.hasAttribute('data-backdetail'))hideDetail();
  if(t.dataset.close)$(t.dataset.close).close();
  if(t.dataset.fromdetail!==undefined){const m=menuFocus;hideDetail();if(m?.id){registerSelected(m.items,m.type,m,m.date)}else if(m){registerSelected(m.items||[],m.type||'夕',null,m.date||today())}return}
+ if(t.hasAttribute('data-newmeal')){registerSelected([],'朝',null,today());return}
  if(t.dataset.addrecord!==undefined){const type=t.dataset.addrecord||'朝';const date=t.closest('[id^="day-"]')?.id?.slice(4)||today();const old=data.menus.find(m=>m.date===date&&m.type===type);registerSelected(old?.items||[],type,old||null,date)}
  if(t.hasAttribute('data-openlibrary')){tab='sets';render();window.scrollTo(0,0);return}
  if(t.hasAttribute('data-backlibrary')){tab='menu';render();window.scrollTo(0,0);return}
