@@ -589,7 +589,7 @@ async function applyRecipePhoto(food,button){
   toast(message.includes('RECIPE_IMAGE_NOT_FOUND')?'レシピの写真を取得できませんでした':message.includes('PHOTO_ALREADY_EXISTS')?'すでに写真が登録されています':'写真を保存できませんでした');return false;
  }finally{if(button){button.disabled=false;button.textContent='📷 レシピの写真を反映'}}
 }
-function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-findfreephoto>🔎 無料写真を探す</button><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
+function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-recipephoto>🍳 レシピの写真を使う</button><button type="button" data-findfreephoto>🔎 無料写真を探す</button><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
 function openDish(name,index=0){
  const recipe=recipeOf(name),role=dishRole(name,index);
  window.__previewDishName=name;
@@ -597,7 +597,7 @@ function openDish(name,index=0){
  const chosenRecipe=safeRecipeUrl(matches(name)?.recipe_url||matches(name)?.recipe_link||'');
  $('dishBody').innerHTML=`${dishPhoto(name)}<div class="dish-title-row"><span class="tag">${escapeHtml(role)}</span><h2>${dishIcon(name)} ${escapeHtml(name)}</h2><span class="pill">⏱ ${escapeHtml(recipe.minutes)}分</span></div>
  ${chosenRecipe?`<section class="recipe-inner saved-recipe"><h3>⭐ わが家の定番レシピ</h3><p>前回選んだレシピを保存しています。次も同じ作り方を使えます。</p><a class="recipe-action recipe-action-primary" href="${attr(chosenRecipe)}" target="_blank" rel="noopener noreferrer">📖 保存したレシピを開く</a><p class="small">材料・手順は選んだレシピサイトで確認してください。別の作り方は混ぜません。</p></section>`:`<section class="recipe-inner"><h3>📝 この料理の作り方（概要）</h3><p class="small">家庭向けの調理メモです。外部サイトのレシピ本文を自動取得したものではありません。</p><h3>🥕 材料の例</h3>${recipe.ingredients?.length?`<ul>${recipe.ingredients.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`:'<p class="small">材料は未登録です。</p>'}<h3>👩‍🍳 作り方</h3><ol>${recipe.steps.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol></section>`}
- ${chosenRecipe?`<div class="group"><button type="button" class="btn outline" data-recipephoto>📷 レシピの写真を反映</button></div>`:``}<div id="photoCandidates" class="photo-candidates" hidden></div>${referenceHtml(name,recipe)}
+ <div id="photoCandidates" class="photo-candidates" hidden></div>${referenceHtml(name,recipe)}
  <div class="group"><button class="btn outline" data-backmenu>← 献立メニューに戻る</button><button class="btn ghost" data-close="dishDialog">閉じる</button></div>`;
  $('dishDialog').showModal();
  if(!photoAvailable(name)&&!chosenRecipe)searchFreePhoto(name);
@@ -690,7 +690,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-detail],[d
 document.addEventListener('click',e=>{
  const trigger=e.target.closest('[data-openphotomenu]');
  if(trigger){const menu=document.getElementById('photoActionMenu');if(menu){menu.hidden=!menu.hidden;trigger.setAttribute('aria-expanded',String(!menu.hidden))}return}
- const recipePhotoBtn=e.target.closest('[data-recipephoto]');if(recipePhotoBtn){const food=matches(window.__previewDishName);if(food){void applyRecipePhoto(food,recipePhotoBtn).then(ok=>{if(ok){$('dishDialog').close();openDish(food.name,0)}})}return}
+ const recipePhotoBtn=e.target.closest('[data-recipephoto]');if(recipePhotoBtn){const menu=document.getElementById('photoActionMenu');if(menu)menu.hidden=true;const food=matches(window.__previewDishName);if(food){void applyRecipePhoto(food,recipePhotoBtn).then(ok=>{if(ok){$('dishDialog').close();openDish(food.name,0)}})}else toast('先に「好み」に料理とレシピを登録してください');return}
   const search=e.target.closest('[data-findfreephoto]');if(search){searchFreePhoto(window.__previewDishName);return}
  const chosen=e.target.closest('[data-commonsselect]');if(chosen){selectFreePhoto(Number(chosen.dataset.commonsselect));return}
  const del=e.target.closest('[data-photoaction="delete"]');
