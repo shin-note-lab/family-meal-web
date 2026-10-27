@@ -515,13 +515,21 @@ async function searchFreePhoto(name){
   window.__commonsCandidates=entries;
   if(!entries.length){wrap.innerHTML='<strong>画像候補が見つかりませんでした。</strong><p class="small">別の料理名で探すか、手元の写真を登録してください。</p>';return}
   wrap.innerHTML='<strong>🖼️ 写真候補を選ぶ</strong><p class="small">Wikimedia Commonsから取得。写真を確認して選択するとNotionへ保存します。ライセンス・出典は画像ページで確認できます。</p><div class="photo-candidates-grid">'+entries.slice(0,9).map((p,i)=>`<div class="photo-candidate-card"><button type="button" class="photo-candidate" data-commonsselect="${i}"><img loading="lazy" src="${attr(p.info.thumburl)}" alt="${attr(name)}の写真候補 ${i+1}"><span class="photo-candidate-label">写真候補 ${i+1}</span><span class="photo-candidate-sub">この写真を選ぶ</span></button><details class="photo-license"><summary>出典・利用条件</summary><div>利用条件：${escapeHtml(p.info.extmetadata?.LicenseShortName?.value||"未確認")}</div><a href="${attr(p.info.descriptionurl||"https://commons.wikimedia.org/")}" target="_blank" rel="noopener noreferrer">画像の出典ページを開く ↗</a></details></div>`).join('')+'</div><p class="small">画像ごとに利用条件が異なります。出典・ライセンスを確認してから選択してください。</p>';
+  // Attach directly to the actual candidate buttons: no reliance on unrelated global click handlers.
+  wrap.querySelectorAll('button[data-commonsselect]').forEach(btn=>{
+   btn.addEventListener('click',event=>{
+    event.preventDefault();event.stopPropagation();
+    const i=Number(btn.dataset.commonsselect);
+    void selectFreePhoto(i);
+   });
+  });
  }catch(err){wrap.innerHTML='<strong>画像を取得できませんでした。</strong><p class="small">'+escapeHtml(err.message)+'。ネットワーク設定によっては検索できない場合があります。</p>'}
 }
 async function selectFreePhoto(i){
  const item=window.__commonsCandidates?.[i],name=window.__previewDishName;
  if(!item||!name){toast('候補を取得し直してください');return}
  const food=data.foods.find(f=>f.name===name);
- if(!food){toast('写真の保存には、先に「好み」に料理を登録してください');return}
+ if(!food){alert('写真の保存には、先に「好み」に料理を登録してください');return}
  const license=item.info.extmetadata?.LicenseShortName?.value||'ライセンス未確認';
  const source=item.info.descriptionurl||'https://commons.wikimedia.org/wiki/'+encodeURIComponent(item.title.replaceAll(' ','_'));
  if(!confirm('この写真を「'+name+'」に登録しますか？\n利用条件：'+license+'\n詳細は候補の「出典・利用条件」で確認できます。'))return;
