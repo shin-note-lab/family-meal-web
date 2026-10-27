@@ -109,6 +109,31 @@
 .topbar{position:relative;top:auto}
 .tabs{position:sticky;top:0;z-index:29;box-shadow:0 5px 14px #244b361a}
 /* Keep tabs flush to the viewport while the page scrolls. */
+
+/* Five compact daily slots; actions appear only after expanding a slot. */
+.compact-day .day-heading{padding:10px 12px}
+.compact-day-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:9px 9px 4px}
+.compact-snack-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:3px 9px 10px}
+.compact-slot{min-width:0;background:#f8faf8;border:1px solid #dfe9e2;border-radius:12px;overflow:hidden;margin:0}
+.compact-slot[open]{background:#eff8f4;border-color:#9ccbb9}
+.compact-slot>summary{display:flex;flex-direction:column;align-items:flex-start;position:relative;gap:5px;list-style:none;cursor:pointer;padding:11px 8px;min-height:83px}
+.compact-slot>summary::-webkit-details-marker{display:none}
+.compact-label{font-size:13px;font-weight:800;line-height:1.4;white-space:nowrap}
+.compact-food,.compact-unset{font-size:11px;color:#587067;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;max-width:100%;padding-right:6px}
+.compact-unset{color:#86978e}
+.compact-arrow{position:absolute;right:6px;top:9px;color:#82978d;font-size:13px}
+.compact-slot[open] .compact-arrow{transform:rotate(180deg)}
+.compact-slot-body{padding:9px;border-top:1px solid #d9e9e1;font-size:12px;min-width:0}
+.compact-slot-body .time-slot{margin:0;padding:7px;box-shadow:none}
+.compact-slot-body .school-lunches{grid-template-columns:1fr}
+.compact-slot-body .school-lunch{padding:6px;font-size:12px}
+.compact-slot-body .slot-title{font-size:12px}
+.compact-slot-body .meal-entry-row{flex-wrap:wrap}
+.compact-slot-body .mealrow{min-width:0}
+.compact-recipe-link{width:100%;text-align:left;border:0;background:transparent;color:#126b5d;padding:4px 0 8px;font-weight:700;font-size:12px;overflow-wrap:anywhere}
+.compact-action{font-size:12px!important;min-height:34px!important;padding:6px 8px!important;width:100%}
+.compact-extra{padding:0 9px 9px}
+@media(max-width:380px){.compact-label{font-size:11px}.compact-day-grid{gap:5px}.compact-slot>summary{padding:9px 6px}}
 </style><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./apple-touch-icon.png"><style>
 .weekly-tabs{display:flex;gap:8px;align-items:stretch;margin:14px 0 18px;width:100%}
 .week-tab-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:1;min-width:0}
@@ -792,15 +817,24 @@ function menuCards(mode="current",selectedMonth=null,selectedWeek=null){
    const lunchAtHome=ms.some(m=>m.type==='昼');
    const hasSchool=v.school!==null;
    const satOrSun=[0,6].includes(new Date(d+'T12:00:00+09:00').getUTCDay());
-   const beforeNoon=homeSlot(ms,'朝');
-   const morningSnack=homeSlot(ms,'おやつ（午前）');
-   const afternoonSnack=homeSlot(ms,'おやつ（午後）');
-   const lunchParts=[hasSchool?schoolSlot(v.school):(!lunchAtHome&&!satOrSun?schoolSlot(null):''),...(lunchAtHome?[homeSlot(ms,'昼')]:[])].filter(Boolean).join('');
-   const dinner=homeSlot(ms,'夕');
-   const bentos=ms.some(m=>m.type==='弁当')?homeSlot(ms,'弁当'):'';
+   function compactMeal(type,label,icon){
+    const found=ms.filter(m=>m.type===type);
+    const summary=found.length?orderedMealItems(found[0].items).join('・'):'未登録';
+    const preview=found.length?`<span class="compact-food">${escapeHtml(summary)}</span>`:'<span class="compact-unset">未登録</span>';
+    return `<details class="compact-slot"><summary><span class="compact-label">${icon} ${label}</span>${preview}<span class="compact-arrow">⌄</span></summary><div class="compact-slot-body">${found.length?found.map(m=>`<button class="compact-recipe-link" data-detail="${attr(m.id)}">${escapeHtml(orderedMealItems(m.items).join('・'))}　› レシピを見る</button><button class="btn outline compact-action" data-editmenu="${attr(m.id)}">✏️ 献立を記録・編集</button>`).join(''):`<p class="small">まだ献立を登録していません。</p><button class="btn outline compact-action" data-addrecord="${type}">＋ 献立を記録・編集</button>`}</div></details>`;
+   }
+   function compactLunch(){
+    const home=ms.some(m=>m.type==='昼');
+    const school=v.school;
+    const label=home?'家庭の献立':school?'学校・保育所の給食':'未登録';
+    return `<details class="compact-slot"><summary><span class="compact-label">🍚 昼</span><span class="compact-food">${escapeHtml(label)}</span><span class="compact-arrow">⌄</span></summary><div class="compact-slot-body">${home?homeSlot(ms,'昼'):''}${school?schoolSlot(school):(!home?`<button class="btn outline compact-action" data-addrecord="昼">＋ 献立を記録・編集</button>`:'')}</div></details>`;
+   }
+   const bentos=ms.some(m=>m.type==='弁当')?`<div class="compact-extra">${homeSlot(ms,'弁当')}</div>`:'';
    const entryCount=ms.length;
-   return `<section class="card day" id="day-${d}"><div class="day-heading"><div>${dateLabel(d)}<div class="small">${entryCount}件の家庭献立・給食${hasSchool?'予定あり':'未登録'}</div></div><span class="tag">1日まとめ</span></div>
-     <div class="day-list">${beforeNoon}${morningSnack}${lunchParts||'<div class="time-slot empty-meal"><div class="slot-title">🍚 お昼ごはん</div><p class="sub">献立候補は未登録（外食などの場合も記録できます）</p></div>'}${afternoonSnack}${dinner}${bentos}</div>
+   return `<section class="card day compact-day" id="day-${d}"><div class="day-heading"><div>${dateLabel(d)}<div class="small">${entryCount}件の家庭献立・給食${hasSchool?'予定あり':'未登録'}</div></div><span class="tag">1日まとめ</span></div>
+    <div class="compact-day-grid">
+     ${compactMeal('朝','朝','🌞')}${compactLunch()}${compactMeal('夕','夕','🌙')}
+    </div><div class="compact-snack-grid">${compactMeal('おやつ（午前）','おやつ（午前）','🍪')}${compactMeal('おやつ（午後）','おやつ（午後）','🍰')}</div>${bentos}
    </section>`;
  }).join('')}</div>`;
 }
