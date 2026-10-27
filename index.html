@@ -94,6 +94,16 @@
 .reference-box .recipe-help{font-size:12px;line-height:1.6;color:#61796d;margin:12px 0 0}
 @media(max-width:720px){.reference-box .recipe-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.reference-box .recipe-action{min-height:58px;padding:10px 7px;font-size:13px;gap:5px}.reference-box .recipe-action:last-child{grid-column:1/-1}}
 @media(max-width:360px){.reference-box .recipe-action{font-size:12px}.reference-box .recipe-action-icon{font-size:16px}}
+
+/* レシピ自動取得：スマートフォンでも広く編集しやすい確認エリア */
+#recipeExtractPanel.recipe-extract-panel{background:#eaf5fc;border:1px solid #a9d1e8;border-left:4px solid #2984a8;border-radius:12px;padding:12px;margin:12px 0 4px;box-sizing:border-box;width:100%;max-width:100%;}
+#recipeExtractPanel[hidden]{display:none!important}
+#recipeExtractPanel h3{font-size:16px;color:#14566e;margin:0 0 5px}
+#recipeExtractPanel .recipe-extract-help{font-size:12px;line-height:1.5;color:#446675;margin:0 0 10px}
+#recipeExtractText{display:block;width:100%;max-width:100%;box-sizing:border-box;min-height:340px;height:46vh;max-height:650px;resize:vertical;background:#fff;color:#243e45;border:1px solid #9abecf;border-radius:9px;padding:11px 12px;font-family:inherit;font-size:13px;font-weight:400;line-height:1.65;letter-spacing:0;overflow-y:auto}
+#recipeExtractPanel .group{margin-top:10px;gap:8px;flex-wrap:wrap}
+#recipeExtractPanel .group .btn{font-size:14px;padding:10px 18px;min-height:42px}
+@media(max-width:500px){#recipeExtractPanel.recipe-extract-panel{padding:10px;border-radius:10px}#recipeExtractText{min-height:320px;height:48vh;font-size:13px;padding:10px}}
 </style><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./apple-touch-icon.png"><style>
 .weekly-tabs{display:flex;gap:8px;align-items:stretch;margin:14px 0 18px;width:100%}
 .week-tab-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:1;min-width:0}
@@ -947,7 +957,7 @@ function openDish(name,index=0){
  $('dishBody').innerHTML=`${dishPhoto(name)}<div class="dish-title-row"><span class="tag">${escapeHtml(role)}</span><h2>${dishIcon(name)} ${escapeHtml(name)}</h2><span class="pill">⏱ ${escapeHtml(recipe.minutes)}${typeof recipe.minutes==='number'?'分':''}</span></div>
  <section class="recipe-inner editable-cooking"><div class="cooking-heading"><h3>📝 材料・作り方</h3>${food?`<button type="button" class="btn outline cooking-edit" id="cookingEditBtn" onclick="toggleCookingEditor()">✏️ 編集</button>`:''}</div>
  <div id="cookingRead" class="cooking-read">${cookingDisplay(content)}</div>
- ${food&&chosenRecipe?`<div class="group" style="margin:12px 0"><button type="button" class="btn outline" id="recipeExtractBtn" onclick="previewRecipeExtraction()">🔄 参考レシピから材料・作り方を自動取得</button><span class="small" id="recipeExtractStatus"></span></div><section id="recipeExtractPanel" class="recipe-inner" hidden><h3>取得内容を確認・編集</h3><p class="small">保存するまで既存の材料・作り方は変更されません。取得元の内容と照合してください。</p><textarea id="recipeExtractText" rows="12" maxlength="1800" aria-label="取得した材料と作り方"></textarea><div class="group"><button type="button" class="btn primary" id="recipeExtractSave" onclick="saveExtractedRecipe()">確認してNotionに保存</button><button type="button" class="btn outline" onclick="document.getElementById('recipeExtractPanel').hidden=true">キャンセル</button></div></section>`:''}
+ ${food&&chosenRecipe?`<div class="group" style="margin:12px 0"><button type="button" class="btn outline" id="recipeExtractBtn" onclick="previewRecipeExtraction()">🔄 参考レシピから材料・作り方を自動取得</button><span class="small" id="recipeExtractStatus"></span></div><section id="recipeExtractPanel" class="recipe-extract-panel" hidden><h3>取得内容を確認・編集</h3><p class="recipe-extract-help">内容を確認し、必要なら編集して保存してください。</p><textarea id="recipeExtractText" rows="18" maxlength="1800" aria-label="取得した材料と作り方"></textarea><div class="group"><button type="button" class="btn primary" id="recipeExtractSave" onclick="saveExtractedRecipe()">保存</button><button type="button" class="btn outline" onclick="document.getElementById('recipeExtractPanel').hidden=true">キャンセル</button></div></section>`:''}
  ${food?`<form id="cookingEditForm" onsubmit="saveCookingNotes(event)" hidden><textarea id="cookingNotesText" rows="9" maxlength="1800" aria-label="材料と作り方を編集">${escapeHtml(content)}</textarea><div class="cooking-actions"><button class="btn" type="submit" id="cookingSaveBtn">保存</button><button class="btn outline" type="button" onclick="toggleCookingEditor(false)">キャンセル</button><span id="cookingStatus" role="status"></span></div></form>`:`<p class="small">材料・作り方を編集するには、先に料理を登録してください。</p><button type="button" class="btn outline" data-addfoodfromrecipe="${attr(name)}">＋ 料理を登録</button>`}
  </section>
  ${chosenRecipe?`<section class="recipe-inner saved-recipe"><h3>⭐ 定番レシピ</h3><a class="recipe-action recipe-action-primary" href="${attr(chosenRecipe)}" target="_blank" rel="noopener noreferrer">📖 保存したレシピを開く</a></section>`:''}
