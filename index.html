@@ -197,17 +197,6 @@
 .school-expand-hint::after{content:"⌄";font-size:14px;opacity:.7}
 .school-expand[open] .school-expand-hint::after{content:"⌃"}
 .school-expand>summary:focus-visible{outline:2px solid #197b70;outline-offset:2px}
-
-/* School originals: separate, private Drive viewer links */
-.school-original-dialog{width:min(92vw,530px);max-height:85vh;border:1px solid #d8e2e5;border-radius:16px;padding:0;color:inherit;background:var(--surface,#fff)}
-.school-original-dialog::backdrop{background:rgba(12,25,35,.55)}
-.school-original-content{padding:20px;display:grid;gap:12px;max-height:80vh;overflow:auto}
-.school-original-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.school-original-head h2{margin:0;font-size:1.25rem}
-.school-original-person{border:1px solid #dce4e8;border-radius:12px;padding:12px;display:grid;gap:8px}
-.school-original-links{display:grid;gap:8px}
-.school-original-links a{text-decoration:none;text-align:center;white-space:normal}
-#schoolOriginalMonth{padding:10px;border:1px solid #bccbd1;border-radius:8px;font:inherit;max-width:100%}
 </style><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./apple-touch-icon.png"><style>
 .weekly-tabs{display:flex;gap:8px;align-items:stretch;margin:14px 0 18px;width:100%}
 .week-tab-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:1;min-width:0}
@@ -988,7 +977,7 @@ function weekTabs(){const base=weekStartOf(today());if(!selectedWeek||selectedWe
 let monthChoice=null;const monthList=()=>[...new Set([...data.menus,...data.schools,...data.records].map(x=>x.date.slice(0,7)))].sort();
 function monthBar(mode){const months=monthList().filter(m=>mode==='past'?m<=today().slice(0,7):m>=today().slice(0,7));if(monthChoice&&!months.includes(monthChoice))monthChoice=null;return `<div class="month-tabs">${months.map(m=>`<button class="month-pill ${monthChoice===m?'active':''}" data-month="${m}">${m.split('-')[1]*1}月</button>`).join('')}<button class="month-pill ${!monthChoice?'active':''}" data-month="all">すべて</button></div>`}
 function pastView(){return `<div class="section-title"><h2>🗓 過去献立</h2></div><p class="sub">今日より前の献立と給食を確認・編集できます。</p>${monthBar('past')}${menuCards('past',monthChoice)}<button class="btn outline" data-gomenu>← 献立へ戻る</button>`}
-function menuView(){const sets=allMealSets();return `<div class="section-title meal-action-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0;flex:1 1 auto">🍲 1日の献立と給食</h2><div class="meal-action-buttons"><button type="button" class="btn outline" data-thisweek="" aria-label="今週の献立に戻る">↩ 今週</button><button type="button" class="btn outline" id="schoolUploadOpen" aria-label="月別・子ども別の給食表を確認">📷 給食を確認</button><button type="button" class="btn" data-newmeal="" aria-label="新しい献立を登録する">＋ 新規登録</button></div></div>
+function menuView(){const sets=allMealSets();return `<div class="section-title meal-action-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0;flex:1 1 auto">🍲 1日の献立と給食</h2><div class="meal-action-buttons"><button type="button" class="btn outline" data-thisweek="" aria-label="今週の献立に戻る">↩ 今週</button><button type="button" class="btn outline" id="schoolUploadOpen" aria-label="Google Driveで給食表を確認">📷 給食を確認</button><button type="button" class="btn" data-newmeal="" aria-label="新しい献立を登録する">＋ 新規登録</button></div></div>
 ${weekTabs()}
 <div class="card"><button class="btn outline" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center" data-openlibrary=""><span>✨ 献立を選ぶ <span class="pill">全${sets.length}種類・実食から自動更新</span></span><span>›</span></button></div>
 <section id="weekSwipeArea" aria-label="献立一覧。左右スワイプで週を移動"><div id="weekSwipeTrack"><div class="week-slide week-slide-prev">${selectedWeek>weekStartOf(today())?menuCards("current",null,addDaysISO(selectedWeek,-7)):''}</div><div class="week-slide week-slide-current">${menuCards("current",null,selectedWeek)}</div><div class="week-slide week-slide-next">${menuCards("current",null,addDaysISO(selectedWeek,7))}</div></div><div class="swipe-direction" id="swipeDirection" aria-hidden="true"></div></section>
@@ -1350,31 +1339,7 @@ for(const id of ['foodRyo','foodAoi']) $(id).innerHTML=allowed.map(x=>`<option>$
 // All editing actions in this preview are local-only, never network.
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;if(tab!=='foods')returnToMenuEditor=false;monthChoice=null;render();scrollTo({top:0,behavior:'smooth'})}));
 let schoolParsed=[];
-// Google Drive stores originals; Notion remains the source of meal text and image references.
-// Do not place private OAuth credentials or images in the public application.
-const SCHOOL_ORIGINALS=Object.freeze({
- '2026-11':Object.freeze({ryo:Object.freeze([
-  {id:'1gQPF8ZpOAHYJ8iyM3yoAyxInpz9PLvpN',label:'前半（2〜13日）'},
-  {id:'11cNjmikvEQ6PRvjfqxAFaffeSs16ryMG',label:'後半（16〜30日）'}
- ])})
-});
-const SCHOOL_ORIGINAL_FOLDER='https://drive.google.com/drive/folders/1PVq2onwfV2Eh5ygb8JV1acxHg3jxxUn_';
-function schoolOriginalMonth(){return (tab==='past'&&monthChoice)||((tab==='menu'&&selectedWeek)?selectedWeek.slice(0,7):today().slice(0,7))}
-function schoolOriginalDialogHtml(month){
- const files=SCHOOL_ORIGINALS[month]||{};
- const label=Number(month.slice(5))+'月';
- function person(name,key){const items=files[key]||[];return `<div class="school-original-person"><strong>${escapeHtml(name)}｜${label}の給食表</strong>${items.length?`<div class="school-original-links">${items.map((f,i)=>`<a class="btn outline" href="https://drive.google.com/file/d/${encodeURIComponent(f.id)}/view" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(name)}の給食表 ${i+1}枚目をGoogle Driveで開く">📄 ${escapeHtml(f.label)} を開く ↗</a>`).join('')}</div>`:'<p class="sub">原本未登録</p>'}</div>`}
- return `<div class="school-original-head"><h2>📷 給食表を確認</h2><button type="button" class="btn outline" data-school-original-close="">閉じる</button></div><p class="sub">${escapeHtml(month)}の原本写真です。Google Driveで開きます。</p>${person('りょう','ryo')}${person('あおい','aoi')}<p class="sub">家族のGoogleアカウントに閲覧権限が必要です。開けない場合は、Google Driveのログイン先と共有設定をご確認ください。</p><a href="${SCHOOL_ORIGINAL_FOLDER}" target="_blank" rel="noopener noreferrer" class="btn outline">給食表フォルダを開く ↗</a>`;
-}
-function schoolUploadOpen(){
- let d=document.getElementById('schoolOriginalDialog');
- if(!d){d=document.createElement('dialog');d.id='schoolOriginalDialog';d.className='school-original-dialog';document.body.appendChild(d)}
- const initial=schoolOriginalMonth();
- d.innerHTML=`<div class="school-original-content"><label for="schoolOriginalMonth">対象月</label><input id="schoolOriginalMonth" type="month" value="${initial}" min="2020-01" max="2100-12"><div id="schoolOriginalBody">${schoolOriginalDialogHtml(initial)}</div></div>`;
- d.showModal();
-}
-document.addEventListener('change',e=>{if(e.target.id==='schoolOriginalMonth'&&/^\d{4}-\d{2}$/.test(e.target.value))document.getElementById('schoolOriginalBody').innerHTML=schoolOriginalDialogHtml(e.target.value)});
-document.addEventListener('click',e=>{if(e.target.closest('[data-school-original-close]'))document.getElementById('schoolOriginalDialog')?.close()});
+function schoolUploadOpen(){window.open('https://drive.google.com/drive/folders/1dbVqUA7O8VodherGzwly6BRYRdls-4aJ','_blank','noopener,noreferrer')}
 function parseSchoolLines(){const month=$('schoolMonth').value,target=$('schoolTarget').value;if(!month){alert('対象の月を選んでください');return}const lines=$('schoolOcrText').value.split(/\n/);const results=[];for(const line of lines){const m=line.match(/(?:\d{4}年)?\s*(?:(\d{1,2})月)?\s*(\d{1,2})日?\s*[（(]?[月火水木金土日]?[）)]?\s*[：:、\s\-]*(.+)/);if(!m)continue;const mm=String(m[1]||Number(month.slice(5))).padStart(2,'0'),dd=String(m[2]).padStart(2,'0');const date=month.slice(0,4)+'-'+mm+'-'+dd;const dt=new Date(date+'T12:00:00');if(isNaN(dt.getTime())||dt.getMonth()+1!==Number(mm)||date.slice(0,7)!==month)continue;const menu=m[3].trim();if(menu)results.push({date,menu,target})}schoolParsed=results;$('schoolReview').innerHTML=results.length?'<p class="small">'+results.length+'日分を抽出しました。内容を確認して保存してください。</p>'+results.map((x,i)=>'<div class="field"><label>'+escapeHtml(x.date)+'</label><input data-schoolrow="'+i+'" value="'+attr(x.menu)+'"></div>').join(''):'<p class="small">日付付きの行が見つかりませんでした。「10月28日 ごはん、焼き魚」の形式に修正してください。</p>';$('schoolSave').disabled=!results.length}
 async function runSchoolOcr(){const files=[...$('schoolPhotos').files];if(!files.length){alert('写真を選択してください');return}const status=$('schoolOcrStatus');const btn=$('schoolOcrRun');btn.disabled=true;try{status.textContent='OCRライブラリを読み込んでいます…';if(!window.Tesseract){await new Promise((resolve,reject)=>{const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';sc.onload=resolve;sc.onerror=()=>reject(Error('OCRライブラリの読み込みに失敗しました'));document.head.appendChild(sc)})}const worker=await Tesseract.createWorker('jpn');let text='';try{for(let i=0;i<files.length;i++){status.textContent=(i+1)+'/'+files.length+'枚を読み取り中…';const out=await worker.recognize(files[i]);text+='\n'+out.data.text}}finally{await worker.terminate()}$('schoolOcrText').value=text.trim();status.textContent='文字を読み取りました。誤字や日付を確認してから「日付別に整理」を押してください。';parseSchoolLines()}catch(e){status.textContent='自動OCRに失敗しました：'+e.message+'。下欄に文字を入力して登録できます。'}finally{btn.disabled=false}}
 async function saveSchool(){if(!schoolParsed.length)return;const rows=[...document.querySelectorAll('[data-schoolrow]')];const btn=$('schoolSave');btn.disabled=true;let done=0;try{for(const x of schoolParsed){const ix=schoolParsed.indexOf(x);const value=rows[ix]?.value.trim()||'';if(!value)continue;const existing=data.schools.find(r=>r.date===x.date);const weekday=new Date(x.date+'T12:00:00').getDay();const target=x.target;const row={meal_date:x.date,ryo_menu:target==='ryo'?value:existing?.ryo||'',aoi_menu:target==='aoi'?value:existing?.aoi||'',ryo_status:target==='ryo'?'給食あり':existing?.ryoStatus||'未確認',aoi_status:target==='aoi'?(weekday===0||weekday===6?'本人登園なし':'給食あり'):existing?.aoiStatus||'内容未確認'};if(existing?.id)await remoteUpdate('school_meals',existing.id,row);else await remoteInsert('school_meals',row);done++}await remoteReload();render();$('schoolUploadDialog').close();toast('給食'+done+'日分を保存しました')}catch(e){alert(done+'日分保存後にエラー：'+e.message+'。再実行すると上書きされるため、内容を確認してください。')}finally{btn.disabled=false}}
