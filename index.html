@@ -186,6 +186,17 @@
 .compact-lunch-school{grid-template-columns:56px minmax(0,1fr);gap:7px;padding:7px 9px}
 .compact-lunch-school .compact-school-heading{min-height:38px;padding:4px 2px;font-size:12px}
 @media(max-width:390px){.compact-day-grid .compact-navigate{grid-template-columns:52px minmax(0,1fr) 10px;gap:6px;padding:7px 7px}.compact-lunch-school{grid-template-columns:52px minmax(0,1fr);gap:6px;padding:7px 7px}.compact-day-grid .compact-navigate .compact-label{font-size:12px}}
+
+/* School menus: independent tap-to-expand; stored menu text remains unchanged. */
+.compact-school-children{grid-template-rows:none;grid-auto-rows:auto}
+.compact-school-menu.school-expand{display:block;overflow:visible;max-height:none;-webkit-line-clamp:unset;line-clamp:unset;min-width:0;padding:0;align-self:stretch}
+.school-expand>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:42px;padding:6px 8px;box-sizing:border-box;min-width:0}
+.school-expand>summary::-webkit-details-marker{display:none}
+.school-menu-value{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:anywhere;min-width:0;flex:1}
+.school-expand[open] .school-menu-value{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible;white-space:normal}
+.school-expand-hint::after{content:"⌄";font-size:14px;opacity:.7}
+.school-expand[open] .school-expand-hint::after{content:"⌃"}
+.school-expand>summary:focus-visible{outline:2px solid #197b70;outline-offset:2px}
 </style><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./apple-touch-icon.png"><style>
 .weekly-tabs{display:flex;gap:8px;align-items:stretch;margin:14px 0 18px;width:100%}
 .week-tab-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:1;min-width:0}
@@ -942,7 +953,7 @@ function menuCards(mode="current",selectedMonth=null,selectedWeek=null){
     const home=ms.find(m=>m.type==='昼');
     const school=v.school;
     const ryo=school?.ryo||'',aoi=school?.aoi||'';
-    const schoolText=school?`<div class="compact-school-row"><span class="compact-school-name">りょう</span><span class="compact-school-menu">${escapeHtml(ryo||'献立未登録')}</span></div><div class="compact-school-row"><span class="compact-school-name">あおい</span><span class="compact-school-menu">${escapeHtml(aoi||'献立未登録')}</span></div>`:'';
+    const schoolText=school?`<div class="compact-school-row"><span class="compact-school-name">りょう</span><details class="compact-school-menu school-expand"><summary aria-label="りょうの給食を展開・折りたたむ"><span class="school-menu-value">${escapeHtml(ryo||'献立未登録')}</span><span class="school-expand-hint" aria-hidden="true"></span></summary></details></div><div class="compact-school-row"><span class="compact-school-name">あおい</span><details class="compact-school-menu school-expand"><summary aria-label="あおいの給食を展開・折りたたむ"><span class="school-menu-value">${escapeHtml(aoi||'献立未登録')}</span><span class="school-expand-hint" aria-hidden="true"></span></summary></details></div>`:'';
     const homeText=home?`<span class="compact-food">家庭：${escapeHtml(orderedMealItems(home.items).join('・'))}</span>`:'';
     const action=home?`data-detail="${attr(home.id)}"`:`data-addrecord="昼"`;
     return `<div class="compact-lunch"><button type="button" class="compact-slot compact-navigate compact-lunch-home" ${action}><span class="compact-label">昼 <span class="compact-arrow">›</span></span>${homeText||'<span class="compact-unset">家庭の献立：未登録</span>'}</button>${school?`<div class="compact-lunch-school"><strong class="compact-school-heading">給食</strong><div class="compact-school-children">${schoolText}</div></div>`:''}</div>`;
