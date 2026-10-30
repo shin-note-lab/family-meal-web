@@ -1128,38 +1128,45 @@ async function applyRecipePhoto(food,button){
 }
 async function legacyRecipePhotoPreview(food,button){
  if(!food?.id||!safeRecipeUrl(food.recipe_url||'')){toast('先にレシピURLを登録してください');return false}
- if(button){button.disabled=true;button.textContent='写真を取得中…'}
+ if(button){button.disabled=true;button.textContent='写真を検索中…'}
  try{
   if(!await remoteValid())throw Error('ログインし直してください');
   const found=await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'recipe_photo_preview',id:food.id}});
-  const url=found.image_url;
-  if(!url||!/^https:\/\//.test(url))throw Error('RECIPE_IMAGE_NOT_FOUND');
+  const urls=[...new Set([...(found.image_urls||[]),found.image_url].filter(u=>typeof u==='string'&&/^https:\/\//.test(u)))];
+  if(!urls.length)throw Error('PHOTO_NOT_FOUND');
   document.querySelectorAll('.recipe-photo-preview').forEach(el=>{if(el.open)el.close();el.remove()});
   const preview=document.createElement('dialog');preview.className='recipe-photo-preview';
-  preview.setAttribute('role','dialog');preview.setAttribute('aria-modal','true');preview.setAttribute('aria-label','レシピ写真の確認');
-  preview.innerHTML='<div style="background:white;border-radius:16px;padding:18px;max-height:90dvh;overflow:auto"><h3 style="margin:0 0 12px">レシピの写真を確認</h3><img id="recipePhotoCandidate" alt="レシピの写真" style="display:block;width:100%;max-height:48vh;object-fit:contain;border-radius:10px"><p id="recipePhotoHint" class="small">レシピサイトが指定した代表画像です。別の料理の写真が表示される場合は使用せず、写真を選ぶ・撮影する方法で登録してください。</p><p class="small"><a id="recipePhotoSource" target="_blank" rel="noopener noreferrer">登録済みのレシピページを確認する ↗</a></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" id="recipePhotoUse" disabled>この写真を使う</button><button type="button" class="btn outline" id="recipePhotoCancel">キャンセル</button></div></div>';
+  preview.setAttribute('aria-label','レシピ写真の選択');
+  preview.innerHTML='<div style="background:white;border-radius:16px;padding:18px;max-height:90dvh;overflow:auto;max-width:520px"><h3 style="margin:0 0 12px">レシピの写真を選ぶ</h3><p class="small">料理と一致する写真を選択してください。サイトのロゴなどが含まれる場合があります。</p><div id="recipePhotoChoices" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:46vh;overflow:auto"></div><p id="recipePhotoHint" class="small">写真を選ぶと保存できます。</p><p class="small"><a id="recipePhotoSource" target="_blank" rel="noopener noreferrer">登録済みレシピを見る ↗</a></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" id="recipePhotoUse" disabled>選んだ写真を保存</button><button type="button" class="btn outline" id="recipePhotoCancel">キャンセル</button></div></div>';
   document.body.append(preview);preview.showModal();
-  const img=preview.querySelector('img'),use=preview.querySelector('#recipePhotoUse'),hint=preview.querySelector('#recipePhotoHint');preview.querySelector('#recipePhotoSource').href=found.recipe_url||food.recipe_url;
   preview.addEventListener('click',e=>e.stopPropagation());
+  const list=preview.querySelector('#recipePhotoChoices'),use=preview.querySelector('#recipePhotoUse'),hint=preview.querySelector('#recipePhotoHint');
+  preview.querySelector('#recipePhotoSource').href=found.recipe_url||food.recipe_url;
   preview.querySelector('#recipePhotoCancel').onclick=()=>{preview.close();preview.remove()};
-  img.onload=()=>{use.disabled=false;hint.textContent='「'+food.name+'」の写真と一致するときだけ保存してください。違う場合はキャンセルし、写真を選んで登録してください。'};
-  img.onerror=()=>{hint.textContent='写真を表示できませんでした。画像のアップロードをお試しください'};
-  img.src=url;
+  let selected='';
+  urls.forEach((url,i)=>{
+   const tile=document.createElement('button');tile.type='button';tile.style.cssText='border:2px solid #d5e3dd;border-radius:12px;background:#fff;padding:5px;min-width:0;cursor:pointer';
+   const img=document.createElement('img');img.alt='写真候補 '+(i+1);img.loading='lazy';img.style.cssText='width:100%;height:110px;object-fit:contain;border-radius:8px';
+   img.onerror=()=>{tile.disabled=true;tile.style.opacity='.35';img.alt='表示できない写真'};
+   img.src=url;tile.append(img);
+   tile.onclick=()=>{selected=url;[...list.children].forEach(el=>el.style.borderColor='#d5e3dd');tile.style.borderColor='#176c5e';use.disabled=false;hint.textContent='選択した写真が「'+food.name+'」と一致するか確認してください。'};
+   list.append(tile);
+  });
   use.onclick=async()=>{
+   if(!selected)return;
    const replace=!!food.photo_url||photoAvailable(food.name);
-   if(replace&&!confirm('今の料理写真を、この写真に置き換えますか？'))return;
+   if(replace&&!confirm('現在の料理写真を、選択した写真に置き換えますか？'))return;
    use.disabled=true;use.textContent='保存中…';
    try{
-    // Save the selected recipe image as a durable uploaded file (single canonical path).
-    await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'recipe_photo_external',id:food.id,image_url:url,replace}});
+    await remoteApi('/functions/v1/family-meal-notion-primary',{method:'POST',token:remoteSession.access_token,body:{table:'foods',action:'recipe_photo_external',id:food.id,image_url:selected,replace}});
     await remoteReload();const current=data.foods.find(f=>f.id===food.id);
     if(!current?.photo_url)throw Error('PHOTO_NOT_SAVED');
-    preview.close();preview.remove();if($('dishDialog').open){$('dishDialog').close();openDish(food.name,0)}toast('保存しました');
-   }catch(err){hint.textContent=String(err.message||'').includes('PHOTO_PREVIEW_CHANGED')?'レシピサイトの画像が変更されました。閉じて再確認してください。':'写真を保存できませんでした。別の写真をアップロードしてください。';use.disabled=false;use.textContent='もう一度試す'}
+    preview.close();preview.remove();if($('dishDialog').open){$('dishDialog').close();openDish(food.name,0)}toast('選んだ写真を保存しました');
+   }catch(err){hint.textContent='保存できませんでした：'+String(err.message||'画像の取得に失敗しました');use.disabled=false;use.textContent='もう一度保存'}
   };
   return true;
- }catch(err){toast('レシピの写真を取得できませんでした。画像のアップロードをお試しください');return false}
- finally{if(button){button.disabled=false;button.textContent='🍳 レシピの写真を使う'}}
+ }catch(err){toast('レシピの写真候補を取得できませんでした：'+String(err.message||''));return false}
+ finally{if(button){button.disabled=false;button.textContent='📖 レシピの写真を使う'}}
 }
 function dishPhoto(name){return `<div class="dish-photo image-stage">${coverFor(name,'detail-dish-img')}<button type="button" class="photo-menu-trigger" data-openphotomenu aria-label="写真の操作を開く" aria-expanded="false">📷 <span>⋯</span></button><div class="photo-action-menu" id="photoActionMenu" hidden><button type="button" data-recipephoto>🔎 写真候補を選ぶ</button><button type="button" data-findfreephoto>🔎 無料写真を探す</button><button type="button" data-photoaction="delete">🗑️ 画像を削除</button><label>⬆️ 新しい画像をアップロード<input type="file" accept="image/*" data-photochange="upload" hidden></label><label>📸 写真を撮る<input type="file" accept="image/*" capture="environment" data-photochange="camera" hidden></label></div></div>`}
 function cookingText(recipe){
