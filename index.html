@@ -980,62 +980,56 @@ function pastView(){return `<div class="section-title"><h2>🗓 過去献立</h2
 function menuView(){const sets=allMealSets();return `<div class="section-title meal-action-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0;flex:1 1 auto">🍲 1日の献立と給食</h2><div class="meal-action-buttons"><button type="button" class="btn outline" data-thisweek="" aria-label="今週の献立に戻る">↩ 今週</button><button type="button" class="btn outline" id="schoolUploadOpen" aria-label="Google Driveで給食表を確認">📷 給食を確認</button><button type="button" class="btn" data-newmeal="" aria-label="新しい献立を登録する">＋ 新規登録</button></div></div>
 ${weekTabs()}
 <div class="card"><button class="btn outline" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center" data-openlibrary=""><span>✨ 献立を選ぶ <span class="pill">全${sets.length}種類・実食から自動更新</span></span><span>›</span></button></div>
-${dailyMealReminderPanel()}
-${bentoReminderPanel()}
+${nextBentoMonthPanel()}
 <section id="weekSwipeArea" aria-label="献立一覧。左右スワイプで週を移動"><div id="weekSwipeTrack"><div class="week-slide week-slide-prev">${selectedWeek>weekStartOf(today())?menuCards("current",null,addDaysISO(selectedWeek,-7)):''}</div><div class="week-slide week-slide-current">${menuCards("current",null,selectedWeek)}</div><div class="week-slide week-slide-next">${menuCards("current",null,addDaysISO(selectedWeek,7))}</div></div><div class="swipe-direction" id="swipeDirection" aria-hidden="true"></div></section>
 `}
 
-// Display-only reminder, based on actual Notion-backed records after synchronization.
-function dailyMealReminderState(){
- const yesterday=addDaysISO(today(),-1);
- const missing=[];
- if(!data.records.some(r=>r.date===yesterday&&r.type==='夕'))missing.push('昨日の夕食');
- if(!data.records.some(r=>r.date===today()&&r.type==='朝'))missing.push('今朝の朝食');
- return missing;
+// Bento dates are derived from the Notion-backed daily school lunch DB.
+// Missing school lunches, school holidays and blank menus are NOT proof of a bento day.
+function confirmedBentoDaysFromSchoolDB(){
+ const found=[];
+ const explicit=/(?:お弁当|弁当)(?:\s|　)*(?:持参|の日|必要|を持って|持ってきて|あり)|(?:持参|要)(?:\s|　)*(?:お弁当|弁当)/;
+ for(const row of (data.schools||[])){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(row.date||''))continue;
+  const weekday=new Date(row.date+'T12:00:00Z').getUTCDay();
+  if(weekday===0||weekday===6)continue;
+  for(const [child,menu,status] of [['りょう',row.ryo,row.ryoStatus],['あおい',row.aoi,row.aoiStatus]]){
+   if(explicit.test([menu||'',status||''].join(' ')))found.push({date:row.date,child});
+  }
+ }
+ return found.sort((a,b)=>a.date.localeCompare(b.date));
 }
-function dailyMealReminderPanel(){
- const missing=dailyMealReminderState();
- const next=bentoRead().filter(v=>v.date>=today()).sort((a,b)=>a.date.localeCompare(b.date))[0];
- const days=next?Math.round((new Date(next.date+'T12:00:00Z')-new Date(today()+'T12:00:00Z'))/86400000):null;
- const child=next?(next.child==='りょう'?'りょうくん':'あおいちゃん'):'';
- const bentoMessage=next&&days<=7?(days===0?`${child}のお弁当は今日です。持ち物を確認しましょう。`:days===1?`${child}のお弁当は明日です。買い出しと前日準備を確認しましょう。`:`${child}のお弁当まであと${days}日です。食材を確認しましょう。`):'';
- const message=missing.length===2?'昨日の夕食と今朝の朝食がまだ未登録です。':missing.length===1?`${missing[0]}がまだ未登録です。`:'';
- if(!message&&!bentoMessage)return '';
- return `<section class="card" aria-label="12時のお知らせ" style="margin:12px 0;padding:14px;border:1px solid #d7e4ef;background:#f6faff"><strong>🔔 12時のお知らせ</strong>${message?`<p style="margin:8px 0 2px;font-weight:650">食べた献立を記録しましょう！</p><p style="margin:0">${message}</p>`:''}${bentoMessage?`<p style="margin:8px 0 0">🍱 ${escapeHtml(bentoMessage)}</p>`:''}<p class="small" style="margin:8px 0 0">※アプリ内のお知らせです。アプリを閉じた状態でのプッシュ配信は未設定です。</p></section>`;
+
+function nextBentoMonthPanel(){
+ const start=today(),end=addDaysISO(start,30);
+ const days=confirmedBentoDaysFromSchoolDB().filter(x=>x.date>=start&&x.date<=end);
+ const phrase=(child)=>{const dates=[...new Set(days.filter(x=>x.child===child).map(x=>x.date))];return dates.length?dates.map(x=>`${Number(x.slice(5,7))}月${Number(x.slice(8,10))}日`).join('と'):'予定はありません'};
+ return `<div class="card" style="margin:14px 0;padding:17px 18px"><h3 style="margin:0 0 8px">🍱 次のお弁当（1か月以内）</h3><p style="margin:0;line-height:1.7">${days.length?`りょうくんは${phrase('りょう')}、あおいちゃんは${phrase('あおい')}。`:'1か月以内のお弁当の予定はありません。'}</p></div>`;
 }
-// Bento reminder: only dates explicitly registered as confirmed bento days.
-const BENTO_STORE_KEY='family-meal-confirmed-bento-days-v1';
-function bentoRead(){try{const x=JSON.parse(localStorage.getItem(BENTO_STORE_KEY)||'[]');return Array.isArray(x)?x.filter(v=>v&&/^\d{4}-\d{2}-\d{2}$/.test(v.date)&&['りょう','あおい'].includes(v.child)):[]}catch{return []}}
-function bentoSave(x){localStorage.setItem(BENTO_STORE_KEY,JSON.stringify(x));}
-function bentoReminderPanel(){
- const now=today(),days=bentoRead().filter(v=>v.date>=now).sort((a,b)=>a.date.localeCompare(b.date)),next=days[0];
- const dayDiff=next?Math.round((new Date(next.date+'T12:00:00Z')-new Date(now+'T12:00:00Z'))/86400000):null;
- const when=dayDiff===0?'今日':dayDiff===1?'明日':dayDiff===7?'1週間後':dayDiff+'日後';
- const label=next?`${next.date.replaceAll('-','/')}（${next.child==='りょう'?'りょうくん':'あおいちゃん'}）`:'確定したお弁当日の登録はありません';
- const note=next?(dayDiff===0?'🎒 今日がお弁当の日です。お弁当・水筒・箸などの持ち物を確認しましょう。':dayDiff===1?'🥕 明日がお弁当の日です。買い忘れと下ごしらえを確認しましょう。':dayDiff<=7?'🛒 お弁当の食材を確認し、前日までに買い出しを済ませましょう。':'📅 1週間前になったら買い出し準備を始めましょう。'):'学校・保育所から「弁当持参」と確定した日だけ登録してください。';
- return `<section class="card" aria-label="お弁当のお知らせ" style="margin:12px 0;padding:16px;border:1px solid #cfe4db;background:#f0f8f3">
- <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong style="font-size:1.1rem">🍱 次のお弁当 ${next?`<span class="pill">${when}</span>`:''}</strong><button type="button" class="btn outline" onclick="bentoAddDay()">＋ お弁当日を登録</button></div>
- <p style="margin:9px 0 4px;font-weight:650">${escapeHtml(label)}</p><p style="margin:4px 0 10px">${escapeHtml(note)}</p>
- ${next?`<label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" ${next.shopping?'checked':''} onchange="bentoToggle('${next.date}','${next.child}','shopping',this.checked)">🛒 食材の買い出し完了</label><label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" ${next.prep?'checked':''} onchange="bentoToggle('${next.date}','${next.child}','prep',this.checked)">🥣 前日準備完了</label><button type="button" class="btn outline" onclick="bentoDeleteDay('${next.date}','${next.child}')">この予定を削除</button>`:''}
- <p class="small" style="margin:9px 0 0">※お弁当日はこの端末で登録・保存します。Googleカレンダーとはまだ自動連携していません。</p></section>`;
+async function pushGateway(action,extra={}){
+ if(!await remoteValid())throw Error('ログインし直してください');
+ return remoteApi('/functions/v1/family-meal-push',{method:'POST',token:remoteSession.access_token,body:{action,...extra}});
 }
-function bentoAddDay(){
- const date=prompt('確定したお弁当の日を入力（例：2026-11-06）');
- if(date===null)return;
- if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date+'T12:00:00Z'))){alert('日付は YYYY-MM-DD 形式で入力してください');return}
- const child=prompt('お弁当を持参する子どもを入力（りょうくん／あおいちゃん）','りょう');
- if(child===null)return;
- const normalizedChild=child==='りょうくん'?'りょう':child==='あおいちゃん'?'あおい':child;
- if(!['りょう','あおい'].includes(normalizedChild)){alert('「りょうくん」または「あおいちゃん」を入力してください');return}
- const days=bentoRead();if(!days.some(v=>v.date===date&&v.child===normalizedChild))days.push({date,child:normalizedChild,shopping:false,prep:false});
- bentoSave(days);render();
+function pushKeyBytes(key){const raw=atob(key.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-key.length%4)%4));return Uint8Array.from(raw,c=>c.charCodeAt(0))}
+async function enableMealPush(){
+ const target=document.getElementById('pushStatus');
+ try{
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))throw Error('このブラウザはプッシュ通知に対応していません');
+  if(Notification.permission==='denied')throw Error('端末の設定で通知がブロックされています。ブラウザの通知設定を変更してください');
+  const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('通知が許可されていません');
+  const registration=await navigator.serviceWorker.ready;
+  const key=await pushGateway('public_key');
+  let subscription=await registration.pushManager.getSubscription();
+  if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:pushKeyBytes(key.publicKey)});
+  await pushGateway('subscribe',{subscription:subscription.toJSON()});
+  target.textContent='通知を有効にしました。毎日12時の通知対象になります。';
+ }catch(e){target.textContent='設定できませんでした：'+e.message}
 }
-function bentoToggle(date,child,field,value){const days=bentoRead();const row=days.find(v=>v.date===date&&v.child===child);if(row){row[field]=value;bentoSave(days)}}
-function bentoDeleteDay(date,child){if(!confirm('このお弁当日を削除しますか？'))return;bentoSave(bentoRead().filter(v=>v.date!==date||v.child!==child));render()}
+async function disableMealPush(){const target=document.getElementById('pushStatus');try{const registration=await navigator.serviceWorker.ready;const subscription=await registration.pushManager.getSubscription();if(subscription){await pushGateway('unsubscribe',{endpoint:subscription.endpoint});await subscription.unsubscribe()}target.textContent='この端末への通知を停止しました。'}catch(e){target.textContent='停止できませんでした：'+e.message}}
 
 function setsView(){return `<div class="section-title"><button class="btn outline" data-backlibrary="">← 献立に戻る</button></div><div class="card"><h2>🍽 献立を選ぶ</h2><div class="filterchips" style="margin:14px 0"><button class="${chooseSource==='sets'?'active':''}" data-choosesource="sets">📚 登録済み献立セットから選ぶ</button><button class="${chooseSource==='foods'?'active':''}" data-choosesource="foods">💚 好みから選ぶ</button></div>${chooseSource==='sets'?setCards():`${pickedPanel()}${preferencePicker()}`}</div>`}
 function foodsView(){const arr=data.foods.filter(f=>(cat==='すべて'||f.categories.includes(cat))&&f.name.toLowerCase().includes(query.toLowerCase()));return `${returnToMenuEditor?'<div class="card" style="margin-bottom:14px;background:#f3f9f5"><strong>🍽 献立の編集中</strong><p class="small">新しい料理は好みが未確認でも登録できます。登録後は献立編集画面に戻ります。</p><button type="button" class="btn outline" data-return-menu-editor>← 献立編集に戻る</button></div>':''}<div class="section-title"><h2>💚 料理と家族の好み</h2><button class="btn" data-newfood>＋ 料理を追加</button></div><div class="card"><input class="search" id="foodSearch" type="search" value="${attr(query)}" placeholder="料理名で検索"><div class="sp"></div><div class="filterchips">${categories.map(c=>`<button class="${cat===c?'active':''}" data-cat="${c}">${c}</button>`).join('')}</div><div class="small" style="margin-top:10px">${arr.length}品を表示 / 合計${data.foods.length}品。好みの最終変更日は子ども別に確認できます。</div></div><div class="itemlist">${arr.map(f=>`<div class="fooditem fooditem-clickable" role="button" tabindex="0" data-editfood="${f.id}" aria-label="${attr(f.name)}の好みを編集">${coverFor(f.name)}<h3>${escapeHtml(f.name)}</h3><div class="food-preferences"><span class="pill">👦 ${escapeHtml(f.ryo_preference)}</span><span class="pill">👧 ${escapeHtml(f.aoi_preference)}</span></div><div class="meta">りょう：${escapeHtml(upDate(f,'りょう'))}<div>あおい：${escapeHtml(upDate(f,'あおい'))}</div></div></div>`).join('')}</div>`}
-function settingsView(){return `<h2>⚙️ アプリ設定</h2><div class="card"><h3>🔐 家族共有・同期</h3><p>ログイン中：${escapeHtml(remoteUser?.email||'')}</p><p class="sub">家族で登録した料理や献立は、みんなで共有できます。</p>${remoteMember?.role==='owner'?`<div class="family-invite"><h3>家族を招待</h3><p class="sub">招待した家族は献立・実食・好み・給食を閲覧、登録、編集できます。家族の招待は管理者のみが行えます。招待先にメールが届きます。</p><form id="familyInviteForm" onsubmit="inviteFamilyMember(event)"><label for="familyInviteEmail">招待するメールアドレス</label><div class="family-invite-row"><input id="familyInviteEmail" type="email" required autocomplete="off" placeholder="family@example.com"><button class="btn" type="submit">招待メールを送信</button></div><p id="familyInviteStatus" role="status"></p></form>
+function settingsView(){return `<h2>⚙️ アプリ設定</h2><div class="card" style="margin-bottom:14px"><h3>🔔 12時のプッシュ通知</h3><p class="sub">昨日の夕食・今朝の朝食の実食未登録と、お弁当の7日前からの準備を、毎日12時にお知らせします。</p><button type="button" class="btn" onclick="enableMealPush()">この端末で通知を受け取る</button> <button type="button" class="btn outline" onclick="disableMealPush()">通知を停止</button><p id="pushStatus" class="sub" role="status">通知を受け取るには、端末で許可してください。</p></div><div class="card"><h3>🔐 家族共有・同期</h3><p>ログイン中：${escapeHtml(remoteUser?.email||'')}</p><p class="sub">家族で登録した料理や献立は、みんなで共有できます。</p>${remoteMember?.role==='owner'?`<div class="family-invite"><h3>家族を招待</h3><p class="sub">招待した家族は献立・実食・好み・給食を閲覧、登録、編集できます。家族の招待は管理者のみが行えます。招待先にメールが届きます。</p><form id="familyInviteForm" onsubmit="inviteFamilyMember(event)"><label for="familyInviteEmail">招待するメールアドレス</label><div class="family-invite-row"><input id="familyInviteEmail" type="email" required autocomplete="off" placeholder="family@example.com"><button class="btn" type="submit">招待メールを送信</button></div><p id="familyInviteStatus" role="status"></p></form>
 <div class="family-member-status"><div class="family-member-head"><strong>家族の登録状況</strong><button type="button" class="btn outline" onclick="loadFamilyMembers()">更新</button></div>
 <p class="sub">「利用開始」はログイン履歴がある状態です。招待メールの開封状況は確認できません。</p>
 <div id="familyMemberList" role="status">「更新」を押すと登録状況を確認できます。</div></div></div>`:''}<button class="btn outline" id="syncNow" onclick="window.location.reload()">↻ データを再取得</button> <button class="btn outline" id="logoutNow" onclick="remoteLogout()">ログアウト</button></div>`}
